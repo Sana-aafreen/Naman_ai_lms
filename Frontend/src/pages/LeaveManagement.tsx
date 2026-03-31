@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/lib/api";
 
 interface Leave {
   Leave_ID: string;
@@ -57,7 +58,7 @@ const LeaveManagement: React.FC = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:5000/api/leaves?userId=${user?.id}&department=${user?.department}&role=${user?.role}`
+        `${API_BASE_URL}/api/leaves?userId=${user?.id}&department=${user?.department}&role=${user?.role}`
       );
       const data = await response.json();
       setLeaves(Array.isArray(data) ? data : []);
@@ -85,7 +86,7 @@ const LeaveManagement: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch("http://localhost:5000/api/leaves", {
+      const response = await fetch(`${API_BASE_URL}/api/leaves`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -136,7 +137,7 @@ const LeaveManagement: React.FC = () => {
   const handleApprovalAction = async (leaveId: string, action: "approve" | "reject") => {
     setSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/leaves/${leaveId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/leaves/${leaveId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

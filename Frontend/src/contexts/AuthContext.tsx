@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
+import { API_BASE_URL } from "@/lib/api";
 
 export type UserRole = "Employee" | "Manager" | "Admin";
 
@@ -19,8 +20,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
-
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
@@ -40,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const sheetToCheck = role === "Manager" ? "Manager" : role === "Admin" ? "Admin" : department;
 
-      const response = await fetch(`${BASE_URL}/api/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

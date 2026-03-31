@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/lib/api";
 
 const roles: { role: UserRole; icon: string; label: string; sub: string }[] = [
   { role: "Employee", icon: "👤", label: "Employee", sub: "Team member" },
@@ -28,7 +29,7 @@ const Login: React.FC = () => {
 
   // Fetch departments from backend (exclude Manager and Admin — they are roles not dept sheets)
   React.useEffect(() => {
-    fetch("http://localhost:5000/api/departments")
+    fetch(`${API_BASE_URL}/api/departments`)
       .then(res => res.json())
       .then(data => {
         if (data && data.length > 0) {
