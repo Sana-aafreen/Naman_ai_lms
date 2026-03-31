@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { SOPS, DEPARTMENTS } from "@/data/mockData";
+import { SOP_PDFS, SOPS } from "@/data/mockData";
 
 const SOPLibrary: React.FC = () => {
   const [activeDept, setActiveDept] = useState("Sales");
-  const sopDepts = Object.keys(SOPS);
+  const sopDepts = Array.from(new Set([...Object.keys(SOPS), ...Object.keys(SOP_PDFS)]));
+  const activeSops = SOPS[activeDept] || [];
+  const activePdfDocs = SOP_PDFS[activeDept] || [];
 
   return (
     <div>
@@ -30,9 +32,50 @@ const SOPLibrary: React.FC = () => {
       </div>
 
       <div className="flex flex-col gap-2.5">
-        {(SOPS[activeDept] || []).map((sop, i) => (
+        {activeSops.map((sop, i) => (
           <SOPCard key={`${activeDept}-${i}`} sop={sop} index={i} dept={activeDept} />
         ))}
+        {activePdfDocs.map((pdf, i) => (
+          <PDFCard key={`${activeDept}-pdf-${i}`} pdf={pdf} dept={activeDept} />
+        ))}
+        {activeSops.length === 0 && activePdfDocs.length === 0 && (
+          <div className="bg-card border border-dashed border-border rounded-xl px-4 py-6 text-sm text-muted-foreground">
+            No SOPs or PDFs added for {activeDept} yet.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const PDFCard: React.FC<{
+  pdf: { title: string; fileName: string; href: string; meta: string };
+  dept: string;
+}> = ({ pdf, dept }) => {
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="w-full px-4 py-3 bg-secondary flex items-center gap-2.5 text-left">
+        <div className="w-6 h-6 rounded-full bg-saffron-light flex items-center justify-center text-[10px] font-semibold text-saffron">
+          PDF
+        </div>
+        <div className="flex-1">
+          <div className="text-sm font-semibold">{pdf.title}</div>
+          <div className="text-[11px] text-muted-foreground">{pdf.meta}</div>
+        </div>
+        <span className="text-[11px] text-saffron px-2 py-0.5 rounded-full bg-saffron-light">{dept}</span>
+      </div>
+      <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+        <div className="text-xs text-muted-foreground">
+          Expected file: <span className="font-medium text-foreground">{pdf.fileName}</span>
+        </div>
+        <a
+          href={pdf.href}
+          target="_blank"
+          rel="noreferrer"
+          className="px-3 py-1.5 rounded-lg bg-saffron text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+        >
+          Open PDF
+        </a>
       </div>
     </div>
   );
