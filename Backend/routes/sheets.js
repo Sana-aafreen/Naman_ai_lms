@@ -9,6 +9,41 @@ const SPREADSHEET_ID = '1ObVuVLXelgrKjKTJC3AXpv1YPxbWXO03wt5lXY8I-Po';
 
 let sheetsApi = null;
 
+function normalizeHeader(header) {
+    return String(header || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+function getValue(row, keys) {
+    for (const key of keys) {
+        const direct = row[key];
+        if (direct !== undefined && direct !== null && String(direct).trim() !== '') {
+            return String(direct).trim();
+        }
+    }
+
+    const normalizedEntries = Object.entries(row).map(([key, value]) => [
+        normalizeHeader(key),
+        value,
+    ]);
+
+    for (const key of keys) {
+        const normalizedKey = normalizeHeader(key);
+        const match = normalizedEntries.find(([entryKey, value]) =>
+            entryKey === normalizedKey && value !== undefined && value !== null && String(value).trim() !== ''
+        );
+
+        if (match) {
+            return String(match[1]).trim();
+        }
+    }
+
+    return '';
+}
+
 function getSheetsApi() {
     if (sheetsApi) return sheetsApi;
 
@@ -112,18 +147,28 @@ async function authenticateUser(userId, userName, password, department) {
     // Debug: log available keys from first row
     console.log(`Sheet "${department}" columns:`, Object.keys(data[0]));
 
-    const user = data.find(row =>
-        String(row['User_id']).trim() === String(userId).trim() &&
-        String(row['User_name']).toLowerCase().trim() === String(userName).toLowerCase().trim() &&
-        String(row['Password']).trim() === String(password).trim()
-    );
+    const expectedUserId = String(userId).trim();
+    const expectedUserName = String(userName).toLowerCase().trim();
+    const expectedPassword = String(password).trim();
+
+    const user = data.find(row => {
+        const sheetUserId = getValue(row, ['User_id', 'User ID', 'UserId', 'Employee ID', 'Employee_ID']);
+        const sheetUserName = getValue(row, ['User_name', 'User Name', 'UserName', 'Name']);
+        const sheetPassword = getValue(row, ['Password', 'Passcode', 'Pwd']);
+
+        return (
+            sheetUserId === expectedUserId &&
+            sheetUserName.toLowerCase() === expectedUserName &&
+            sheetPassword === expectedPassword
+        );
+    });
 
     if (user) {
         return {
-            userId: user['User_id'],
-            userName: user['User_name'],
+            userId: getValue(user, ['User_id', 'User ID', 'UserId', 'Employee ID', 'Employee_ID']),
+            userName: getValue(user, ['User_name', 'User Name', 'UserName', 'Name']),
             department,
-            role: user['Role'] || "Employee"
+            role: getValue(user, ['Role', 'User Role', 'User_Role']) || "Employee"
         };
     }
 
