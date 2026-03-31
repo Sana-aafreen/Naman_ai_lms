@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+Frontend/node_modules/
+Backend/node_modules/
+
+# Build output
+dist/
+Frontend/dist/
+Backend/dist/
+
+# Python virtual environments
+venv/
+Backend/venv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+Frontend/.env
+Frontend/.env.*
+!Frontend/.env.example
+Backend/.env
+Backend/.env.*
+!Backend/.env.example
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
