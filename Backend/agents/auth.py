@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -60,25 +61,28 @@ def authenticate_user(
 ) -> dict[str, Any]:
     """Validate employee credentials against the MongoDB employees collection."""
     uid = str(user_id).strip()
-    name = str(user_name).strip()
     pwd = str(password).strip()
     dept = str(department).strip()
 
+    # Diagnostic logging (Safe, only logs ID)
     print(f"[Auth] Attempting login: ID='{uid}' (department: '{dept}')")
 
+    # Use re.escape to handle any special characters in the UID safely
+    safe_uid = re.escape(uid)
     query = {
-        "gsheet_uid": {"$regex": f"^{uid}$", "$options": "i"},
+        "gsheet_uid": {"$regex": f"^{safe_uid}$", "$options": "i"},
         "gsheet_password": pwd
     }
-    # Note: department filtering is regex-based already (case-insensitive)
+    
     if dept:
-        query["department"] = {"$regex": f"^{dept}$", "$options": "i"}
+        safe_dept = re.escape(dept)
+        query["department"] = {"$regex": f"^{safe_dept}$", "$options": "i"}
 
     user = mongo_db.find_one("employees", query)
     
     if not user:
         # Diagnostic: check if user exists at all (ignoring password)
-        exists = mongo_db.find_one("employees", {"gsheet_uid": {"$regex": f"^{uid}$", "$options": "i"}})
+        exists = mongo_db.find_one("employees", {"gsheet_uid": {"$regex": f"^{safe_uid}$", "$options": "i"}})
         if exists:
             print(f"[Auth] FAILED: User '{uid}' found, but password or department mismatched.")
         else:

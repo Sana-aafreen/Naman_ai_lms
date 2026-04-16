@@ -259,20 +259,21 @@ def sync_employees_from_csv():
             print(f"  [Sync] File not found: {path}")
             continue
             
+        file_synced = 0
         try:
             with open(path, mode="r", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    uid  = find_value(row, ["User_id", "id", "uid", "emp_id", "employee_id"])
-                    name = find_value(row, ["User_name", "name", "employee_name", "full_name"])
-                    pwd  = find_value(row, ["Password", "pass", "pwd"])
-                    dept = find_value(row, ["Department", "dept", "dep"])
-                    role = find_value(row, ["Role", "access", "type"], "employee").lower()
+                    uid  = find_value(row, ["User_id", "id", "uid", "emp_id", "employee_id"]).strip()
+                    name = find_value(row, ["User_name", "name", "employee_name", "full_name"]).strip()
+                    pwd  = find_value(row, ["Password", "pass", "pwd"]).strip()
+                    dept = find_value(row, ["Department", "dept", "dep"]).strip()
+                    role = find_value(row, ["Role", "access", "type"], "employee").strip().lower()
                     
                     if not uid or not name:
                         continue
                     
-                    email = find_value(row, ["Email", "e-mail", "mail"])
+                    email = find_value(row, ["Email", "e-mail", "mail"]).strip()
                     if not email:
                         email = f"{uid.lower().replace(' ', '.')}@company.com"
                     
@@ -291,11 +292,13 @@ def sync_employees_from_csv():
                         }},
                         upsert=True
                     )
-                    synced += 1
+                    file_synced += 1
+            print(f"  [Sync] Loaded {file_synced} users from {filename}")
+            synced += file_synced
         except Exception as e:
             print(f"  [Sync] Error processing {filename}: {e}")
             
-    print(f"  [Sync] OK: Synced {synced} employees from local CSV files")
+    print(f"  [Sync] OK: Total {synced} employees synced from local CSV files")
 
 def sync_employees_from_gsheet():
     """Sync employee roster from Google Sheets to MongoDB as a background task."""
