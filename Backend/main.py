@@ -150,6 +150,7 @@ async def lifespan(app: FastAPI):
         safe_err = str(e).encode('ascii', 'ignore').decode('ascii')
         print(f"  [Main] MongoDB initialization warning: {safe_err}")
 
+    import asyncio
     from agents.calendar_manager import init_db, sync_employees_from_gsheet, get_gcal_api
     from agents.growth_tracker_mongo import init_growth_tracker_db
     from agents.kpi_manager import init_kpi_db
@@ -158,13 +159,19 @@ async def lifespan(app: FastAPI):
     init_growth_tracker_db()
     init_kpi_db()
     
-    print("  Syncing employees from Google Sheet...")
-    sync_employees_from_gsheet()
+    # Run heavy sync in background to avoid blocking port binding
+    async def run_sync():
+        print("  [Background] Syncing employees from Google Sheet...")
+        try:
+            sync_employees_from_gsheet()
+            print("  [Background] Initializing Google APIs...")
+            get_gcal_api()
+        except Exception as e:
+            print(f"  [Background] Sync failed: {e}")
+
+    asyncio.create_task(run_sync())
     
-    print("  Initializing Google APIs...")
-    get_gcal_api()
-    
-    print("  http://localhost:8000\n")
+    print("  http://localhost:8000 (Binding complete)\n")
     yield
 
 app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
@@ -180,42 +187,30 @@ app.include_router(course_gen_router)
 # -- Gemini setup --------------------------------------------------------------
 
 try:
-    import google.generativeai as genai  # type: ignore
-    from google.generativeai import GenerativeModel, configure  # type: ignore
+    from google import genai  # type: ignore
 
     _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-    _gemini_model = None
-    
+    _gemini_client = None
+    _GEMINI_MODEL_NAME = "gemini-1.5-flash"
+
     if _GEMINI_KEY:
-        configure(api_key=_GEMINI_KEY)
-        # Try different models in order of preference
-        models_to_try = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"]
-        for model_name in models_to_try:
-            try:
-                _gemini_model = GenerativeModel(model_name)
-                # Test the model with a simple call
-                _gemini_model.generate_content("test")
-                print(f"[OK] Using Gemini model: {model_name}")
-                break
-            except Exception:
-                _gemini_model = None
-                continue
-        
-        if _gemini_model is None:
-            print(f"[WARN]  No compatible Gemini models available. Falling back to mock responses.")
+        _gemini_client = genai.Client(api_key=_GEMINI_KEY)
+        print(f"[OK] Gemini client initialised (model: {_GEMINI_MODEL_NAME})")
+    else:
+        print("[WARN]  GEMINI_API_KEY not set. Falling back to mock responses.")
 except ImportError:
-    _gemini_model = None
+    _gemini_client = None
 except Exception as e:
-    print(f"[WARN]  Gemini initialization error: {e}")
-    _gemini_model = None
+    print(f"[WARN]  Gemini initialisation error: {e}")
+    _gemini_client = None
 
 
 def _gemini(prompt: str, system: str = "") -> str:
-    if _gemini_model is None:
+    if _gemini_client is None:
         return _gemini_fallback(prompt, system)
     try:
         full = f"{system}\n\n{prompt}" if system else prompt
-        return _gemini_model.generate_content(full).text.strip()
+        return _gemini_client.models.generate_content(model=_GEMINI_MODEL_NAME, contents=full).text.strip()
     except Exception as exc:  # noqa: BLE001
         print(f"Gemini error: {exc}")
         return _gemini_fallback(prompt, system)

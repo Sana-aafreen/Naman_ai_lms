@@ -21,8 +21,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-import google.generativeai as genai
-from google.generativeai import GenerativeModel, configure  # type: ignore
+from google import genai
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -38,20 +37,17 @@ router = APIRouter()
 # -- Gemini setup --------------------------------------------------------------
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    configure(api_key=GEMINI_API_KEY)
-    _gemini_model = GenerativeModel("gemini-1.5-flash")
-else:
-    _gemini_model = None
+_gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+_GEMINI_MODEL = "gemini-1.5-flash"
 
 
 def _gemini(prompt: str, system: str = "") -> str:
     """Call Gemini and return the text response."""
-    if _gemini_model is None:
+    if _gemini_client is None:
         return "Gemini API key not configured. Please set GEMINI_API_KEY."
     try:
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
-        response = _gemini_model.generate_content(full_prompt)
+        response = _gemini_client.models.generate_content(model=_GEMINI_MODEL, contents=full_prompt)
         return response.text.strip()
     except Exception as exc:
         return f"I ran into an issue: {exc}"

@@ -9,8 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, cast
 import os, json, httpx, io
 from groq import Groq
-import google.generativeai as genai
-from google.generativeai import GenerativeModel, configure  # type: ignore
+from google import genai
 from groq.types.chat import ChatCompletionMessageParam
 
 router = APIRouter(prefix="/api/career", tags=["Career Portal"])
@@ -18,8 +17,7 @@ router = APIRouter(prefix="/api/career", tags=["Career Portal"])
 # -- Init AI clients ------------------------------------------------------------
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
 _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-if _GEMINI_KEY:
-    configure(api_key=_GEMINI_KEY)
+_gemini_client = genai.Client(api_key=_GEMINI_KEY) if _GEMINI_KEY else None
 _GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
@@ -299,10 +297,9 @@ Assess the answer and return a JSON object with exactly these fields:
 Return only the JSON. No markdown, no explanation."""
 
     try:
-        if not _GEMINI_KEY:
+        if not _gemini_client:
             raise ValueError("GEMINI_API_KEY is not set.")
-        model = GenerativeModel(_GEMINI_MODEL)
-        response = model.generate_content(prompt)
+        response = _gemini_client.models.generate_content(model=_GEMINI_MODEL, contents=prompt)
         raw_text = response.text or ""
         raw = raw_text.strip().replace("```json", "").replace("```", "")
         data = json.loads(raw)
@@ -350,10 +347,9 @@ Analyze the job description and the CV. Return a JSON object:
 Return only JSON. No markdown."""
 
     try:
-        if not _GEMINI_KEY:
+        if not _gemini_client:
             raise ValueError("GEMINI_API_KEY is not set.")
-        model = GenerativeModel(_GEMINI_MODEL)
-        response = model.generate_content(prompt)
+        response = _gemini_client.models.generate_content(model=_GEMINI_MODEL, contents=prompt)
         raw_text = response.text or ""
         raw = raw_text.strip().replace("```json", "").replace("```", "")
         return json.loads(raw)
