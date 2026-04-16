@@ -90,10 +90,12 @@ from typing import Any, Optional
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, AliasChoices
+import traceback
 
 BASE_DIR = Path(__file__).resolve().parent
 AGENTS_DIR = BASE_DIR / "agents"
@@ -196,19 +198,28 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
 
+# Global Error Handler to log 500 errors for diagnostics
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"\n[ERROR] Unhandled Exception at {request.url}")
+    print(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error. Check server logs for details."},
+    )
+
 # CORS Configuration - Explicitly allow Vercel and local development
 ALLOWED_ORIGINS = [
     "https://naman-ai-lms.vercel.app",
     "https://naman-ai-lms.onrender.com",
     "http://localhost:3000",
     "http://localhost:5173",
-    "*", # Keep * as fallback for browser health checks, but explicit origins take priority
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False, # Set to False for broader compatibility with '*' or lists
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -300,14 +311,12 @@ class AIChatRequest(BaseModel):
     employeeName: Optional[str] = None
 
 
-from pydantic import Field, AliasChoices
-
 class LoginRequest(BaseModel):
     # Support both snake_case (Vercel) and camelCase (Original)
     userId: str = Field(validation_alias=AliasChoices("userId", "user_id"))
     userName: str = Field(validation_alias=AliasChoices("userName", "user_name"))
     password: str
-    department: str
+    department: Optional[str] = None # Now optional to match Frontend AuthContext
 
 
 class MonitoringInsightsRequest(BaseModel):
