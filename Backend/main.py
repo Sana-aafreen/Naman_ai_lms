@@ -371,58 +371,9 @@ def get_monitoring_agent(user_id: str, user_data: dict) -> MonitoringAgent:
     return MonitoringAgent(user_id=user_id, user_data=user_data)
 
 
-# -- Startup -------------------------------------------------------------------
 
-# Register Career router
-app.include_router(career_router)
+# -- Cached agents -------------------------------------------------------------
 
-@app.on_event("startup")
-async def warm_backend_services():
-    """Initialize and warm up all backend services on startup."""
-    print(" Warming up backend services...")
-    try:
-        get_sheets_api()
-        print("[OK] Sheets API initialized")
-    except Exception as e:
-        print(f"[WARN]  Sheets API initialization failed: {e}")
-    
-    try:
-        get_departments()
-        print("[OK] Departments loaded")
-    except Exception as e:
-        print(f"[WARN]  Departments loading failed: {e}")
-    
-    try:
-        init_growth_tracker_db()
-        print("[OK] Growth tracker DB initialized")
-    except Exception as e:
-        print(f"[WARN]  Growth tracker DB initialization failed: {e}")
-    
-    try:
-        get_ai_chat_agent()
-        print("[OK] AIChatAgent initialized")
-    except Exception as e:
-        print(f"[WARN]  AIChatAgent initialization failed: {e}")
-    
-    try:
-        get_course_generator_agent()
-        print("[OK] CourseGeneratorAgent initialized")
-    except Exception as e:
-        print(f"[WARN]  CourseGeneratorAgent initialization failed: {e}")
-    
-    try:
-        _ensure_profile_table()
-        print("[OK] User profiles table created")
-    except Exception as e:
-        print(f"[WARN]  Profile table creation failed: {e}")
-
-    try:
-        init_kpi_db()
-        print("[OK] KPI Manager DB initialized")
-    except Exception as e:
-        print(f"[WARN]  KPI Manager DB initialization failed: {e}")
-    
-    print(" All services warmed up!")
 
 
 # -- Existing routes (unchanged) -----------------------------------------------
