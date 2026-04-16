@@ -177,15 +177,28 @@ def now_iso() -> str:
 
 
 def clean_doc(doc: Any) -> Any:
-    """
-    Recursively convert MongoDB-specific types (like ObjectId) to JSON-serializable formats.
-    """
+    """Recursive helper to convert BSON types (ObjectId, datetime) to JSON-serializable types."""
     if isinstance(doc, list):
-        return [clean_doc(x) for x in doc]
+        return [clean_doc(d) for d in doc]
     if isinstance(doc, dict):
-        return {k: clean_doc(v) for k, v in doc.items()}
+        new_doc = {}
+        for k, v in doc.items():
+            if k == "_id":
+                # Ensure every document has a string 'id' field for frontend/legacy compatibility
+                new_doc["id"] = str(v)
+                new_doc[k] = str(v)
+            else:
+                new_doc[k] = clean_doc(v)
+        
+        # Double check 'id' exists if '_id' was missing but it's a dict
+        if "id" not in new_doc and "_id" in new_doc:
+             new_doc["id"] = str(new_doc["_id"])
+             
+        return new_doc
     if isinstance(doc, ObjectId):
         return str(doc)
+    if isinstance(doc, datetime):
+        return doc.isoformat()
     return doc
 
 
