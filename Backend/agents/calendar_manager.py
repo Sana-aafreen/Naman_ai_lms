@@ -2857,13 +2857,6 @@ Return ONLY valid JSON — no markdown, no backticks:
         }
 
 
-# ── Router Registration ───────────────────────────────────────────────────────
-if _LMS_AVAILABLE:
-    try:
-        app.include_router(Career.router)
-        app.include_router(whats_new_router)
-    except Exception as e:
-        print(f"WARN: Failed to register routing: {e}")
 
 #  ENTRY POINT
 # ════════════════════════════════════════════════════════════

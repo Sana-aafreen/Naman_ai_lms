@@ -1059,5 +1059,6 @@ app.include_router(profile_router)
 
 if __name__ == "__main__":
     # Use the current app instance directly to avoid importing the module again.
-    print("Starting uvicorn...")
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    port = int(os.environ.get("PORT", 8000))
+    print(f"Starting uvicorn on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
