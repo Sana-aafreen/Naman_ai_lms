@@ -36,7 +36,8 @@ Run:
   → Open http://localhost:8000
 """
 
-import sqlite3
+import mongo_db
+from bson import ObjectId
 import base64
 import json
 import os
@@ -44,8 +45,8 @@ import hmac
 import hashlib
 import time
 from pathlib import Path
-from datetime import datetime, date
-from typing import Optional, List
+from datetime import datetime, date, timedelta
+from typing import Optional, List, Any
 
 
 try:
@@ -81,7 +82,7 @@ from pydantic import BaseModel
 # ════════════════════════════════════════════════════════════
 #  CONFIG
 # ════════════════════════════════════════════════════════════
-DB_PATH          = "calendar.db"
+GEMINI_API_KEY   = os.getenv("CALENDAR_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 GEMINI_API_KEY   = os.getenv("CALENDAR_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
@@ -230,38 +231,113 @@ def sync_employees_from_gsheet():
     if not departments:
         print("  - No departments found - using seeded employees.")
         return
-    conn = get_db()
-    c = conn.cursor()
+    
     synced = 0
+    all_sheet_data = [] # For "save all sheets" requirement
+
     for idx, dept in enumerate(departments):
         color = AVATAR_COLORS[idx % len(AVATAR_COLORS)]
-        for row in gsheet_get_rows(dept):
+        rows = gsheet_get_rows(dept)
+        
+        # Track all raw data as well
+        all_sheet_data.append({"sheet_name": dept, "rows": rows, "updated_at": mongo_db.now_iso()})
+
+        for row in rows:
             uid  = str(row.get("User_id", "")).strip()
             name = str(row.get("User_name", "")).strip()
             if not uid or not name:
                 continue
-            email = str(row.get("Email",
+            email = str(row.get("Email", 
                 f"{uid.lower().replace(' ', '.')}@company.com")).strip()
             role  = str(row.get("Role", "employee")).strip().lower()
-            c.execute("""
-                INSERT INTO employees
-                    (name, email, department, role, avatar_color, gsheet_uid, gsheet_password)
-                VALUES (?,?,?,?,?,?,?)
-                ON CONFLICT(email) DO UPDATE SET
-                    name=excluded.name, department=excluded.department,
-                    role=excluded.role, avatar_color=excluded.avatar_color,
-                    gsheet_uid=excluded.gsheet_uid,
-                    gsheet_password=excluded.gsheet_password
-            """, (name, email, dept, role, color, uid,
-                  str(row.get("Password", ""))))
+            
+            # Upsert into MongoDB
+            mongo_db.update_one(
+                "employees",
+                {"email": email},
+                {"$set": {
+                    "name": name,
+                    "department": dept,
+                    "role": role,
+                    "avatar_color": color,
+                    "gsheet_uid": uid,
+                    "gsheet_password": str(row.get("Password", "")),
+                    "updated_at": mongo_db.now_iso()
+                }},
+                upsert=True
+            )
             synced += 1
-    conn.commit()
-    conn.close()
-    print(f"  OK: Synced {synced} employees ({len(departments)} departments)")
+            
+    # Also save ALL sheets data into a dedicated collection for backup/reference as requested
+    mongo_db.update_one(
+        "sheets_backup",
+        {"id": "latest_sync"},
+        {"$set": {
+            "sheets": all_sheet_data,
+            "timestamp": mongo_db.now_iso()
+        }},
+        upsert=True
+    )
 
-# ════════════════════════════════════════════════════════════
-#  GOOGLE CALENDAR
-# ════════════════════════════════════════════════════════════
+    print(f"  OK: Synced {synced} employees and backed up all Sheets to MongoDB Atlas")
+
+def sync_leaves_from_gsheet():
+    """Sync the 'Leaves' sheet to MongoDB leaves collection."""
+    api = get_sheets_api()
+    if not api: return
+    
+    rows = gsheet_get_rows("Leaves")
+    synced = 0
+    for row in rows:
+        leave_id = str(row.get("Leave_ID", "")).strip()
+        if not leave_id: continue
+        
+        mongo_db.update_one(
+            "leaves",
+            {"leave_id": leave_id},
+            {"$set": {
+                "employee_id": str(row.get("User_ID", "")).strip(),
+                "employee_name": str(row.get("User_Name", "")).strip(),
+                "department": str(row.get("Department", "")).strip(),
+                "start_date": str(row.get("Date_of_Leave_From", "")).strip(),
+                "end_date": str(row.get("Date_of_Leave_Till", "")).strip(),
+                "reason": str(row.get("Reason", "")).strip(),
+                "type": str(row.get("Leave_Type", "General")).strip(),
+                "days": str(row.get("Days", "")).strip(),
+                "status": str(row.get("Status", "Pending")).strip(),
+                "requested_date": str(row.get("Requested_Date", "")).strip(),
+                "approved_by": str(row.get("Approved_by_Manager_Name", "")).strip(),
+                "updated_at": mongo_db.now_iso()
+            }},
+            upsert=True
+        )
+        synced += 1
+    print(f"  OK: Synced {synced} leave records from Sheets to MongoDB")
+
+def sync_all_raw_sheets_to_mongo():
+    """Backup EVERY sheet in the spreadsheet to raw_sheets_data collection."""
+    api = get_sheets_api()
+    if not api: return
+    
+    depts = gsheet_get_departments()
+    all_data = {}
+    for d in depts + ["Leaves", "Master"]:
+        try:
+            rows = gsheet_get_rows(d)
+            if rows: all_data[d] = rows
+        except: continue
+        
+    mongo_db.update_one(
+        "sheets_backup",
+        {"backup_id": "comprehensive_backup"},
+        {"$set": {
+            "data": all_data,
+            "timestamp": mongo_db.now_iso(),
+            "status": "complete"
+        }},
+        upsert=True
+    )
+    print(f"  OK: Backed up {len(all_data)} sheets to MongoDB Atlas raw storage")
 _gcal_api = None
 
 def get_gcal_api():
@@ -351,13 +427,8 @@ def gcal_list_events(year: int, month: int) -> list:
 import mongo_db
 from bson.objectid import ObjectId
 
-def get_db():
-    return mongo_db.get_db()
-
 def init_db():
-    # MongoDB initialization is handled in mongo_db.py
     return mongo_db.init_mongodb()
-    pass
 
 # ════════════════════════════════════════════════════════════
 #  PYDANTIC MODELS
@@ -408,12 +479,8 @@ def notify_leave_status(to_email: str, emp_name: str, leave: dict, status: str):
 #  CORE FUNCTIONS  (also called by the AI agent as tools)
 # ════════════════════════════════════════════════════════════
 def _get_employees() -> list:
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM employees")
-    result = [dict(r) for r in c.fetchall()]
-    conn.close()
-    return result
+    """Fetch all employees from MongoDB."""
+    return mongo_db.find_many("employees")
 
 
 # Adapt the older sheet helpers to the current workbook layout:
@@ -438,52 +505,7 @@ def gsheet_get_rows(sheet_name: str) -> list:
         return []
 
 
-def sync_employees_from_gsheet():
-    try:
-        from services.sheets import get_directory_people
-    except Exception as e:
-        print(f"  -> Sheets service unavailable, using seeded employees. ({e})")
-        return
-
-    people = get_directory_people()
-    if not people:
-        print("  -> No people found in Employees/Manager/Admin sheets, using seeded employees.")
-        return
-
-    conn = get_db()
-    c = conn.cursor()
-    synced = 0
-    department_colors = {}
-    for person in people:
-        uid = str(person.get("userId", "")).strip()
-        name = str(person.get("userName", "")).strip()
-        if not uid or not name:
-            continue
-
-        department = str(person.get("department", "")).strip() or "General"
-        color_key = department.lower()
-        if color_key not in department_colors:
-            department_colors[color_key] = AVATAR_COLORS[len(department_colors) % len(AVATAR_COLORS)]
-        color = department_colors[color_key]
-
-        email = str(person.get("email", f"{uid.lower().replace(' ', '.')}@company.com")).strip()
-        role = str(person.get("role", "employee")).strip().lower()
-        password = str(person.get("password", "")).strip()
-
-        c.execute("""
-            INSERT INTO employees
-                (name, email, department, role, avatar_color, gsheet_uid, gsheet_password)
-            VALUES (?,?,?,?,?,?,?)
-            ON CONFLICT(email) DO UPDATE SET
-                name=excluded.name, department=excluded.department,
-                role=excluded.role, avatar_color=excluded.avatar_color,
-                gsheet_uid=excluded.gsheet_uid,
-                gsheet_password=excluded.gsheet_password
-        """, (name, email, department, role, color, uid, password))
-        synced += 1
-
-    conn.commit()
-    conn.close()
+# Combined sync logic moved to top of file (line 224)
 
 
 def _normalize_role(raw_role) -> str:
@@ -649,8 +671,6 @@ def _get_holidays_for_month(year: int, month: int) -> list:
     return holidays
 
 def _get_calendar_events(year: int, month: int, current_user: Optional[dict] = None) -> dict:
-    conn = get_db()
-    c = conn.cursor()
     prefix = f"{year}-{month:02d}"
     resolved_role = _normalize_role((current_user or {}).get("role"))
     resolved_employee_id = None
@@ -837,17 +857,20 @@ def _schedule_meeting(title: str, date: str, start_time: str, end_time: str,
         "message":        f"✅ Meeting '{title}' scheduled on {date} {start_time}–{end_time}{gcal_note}",
     }
 
-def _apply_leave(employee_id: int, start_date: str, end_date: str,
+def _apply_leave(employee_id: str, start_date: str, end_date: str,
                  leave_type: str = "casual", reason: str = "") -> dict:
-    conn = get_db()
-    c = conn.cursor()
-
-    c.execute("""
-        SELECT COUNT(*) FROM leaves WHERE employee_id=? AND status != 'rejected'
-        AND NOT (end_date < ? OR start_date > ?)
-    """, (employee_id, start_date, end_date))
-    if c.fetchone()[0] > 0:
-        conn.close()
+    """Apply for leave and save to MongoDB."""
+    # Check for overlaps in MongoDB
+    conflict = mongo_db.find_one("leaves", {
+        "employee_id": employee_id,
+        "status": {"$ne": "rejected"},
+        "$nor": [
+            {"end_date": {"$lt": start_date}},
+            {"start_date": {"$gt": end_date}}
+        ]
+    })
+    
+    if conflict:
         return {"success": False, "message": "Conflict: overlapping leave already exists."}
 
     leave_doc = {
@@ -861,19 +884,19 @@ def _apply_leave(employee_id: int, start_date: str, end_date: str,
     }
     lid = mongo_db.insert_one("leaves", leave_doc)
 
-    emp = mongo_db.find_one("employees", {"gsheet_uid": employee_id})
+    emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": employee_id}, {"id": employee_id}]})
     if not emp:
-        emp = mongo_db.find_one("employees", {"id": employee_id})
-    
-    managers = mongo_db.find_many("employees", {"role": "Manager", "gsheet_uid": {"$ne": employee_id}})
+        try: emp = mongo_db.find_one("employees", {"_id": ObjectId(employee_id)})
+        except: pass
+        
+    if emp:
+        managers = mongo_db.find_many("employees", {"role": "Manager", "$or": [{"gsheet_uid": {"$ne": employee_id}}, {"id": {"$ne": employee_id}}]})
+        leave_data = {"start_date": start_date, "end_date": end_date,
+                      "leave_type": leave_type, "reason": reason}
+        notify_leave_applied(emp["email"], emp["name"], leave_data)
+        for mgr in managers:
+            notify_leave_applied(mgr["email"], emp["name"], leave_data)
 
-    leave_data = {"start_date": start_date, "end_date": end_date,
-                  "leave_type": leave_type, "reason": reason}
-    notify_leave_applied(emp["email"], emp["name"], leave_data)
-    for mgr in managers:
-        notify_leave_applied(mgr["email"], emp["name"], leave_data)
-
-    conn.close()
     return {
         "success":  True,
         "leave_id": lid,
@@ -881,31 +904,39 @@ def _apply_leave(employee_id: int, start_date: str, end_date: str,
     }
 
 def _check_availability(date: str, employee_ids: list) -> dict:
-    conn = get_db()
-    c = conn.cursor()
+    """Check availability of employees in MongoDB."""
     result = {}
     for eid in employee_ids:
-        c.execute("SELECT name FROM employees WHERE id=?", (eid,))
-        emp = c.fetchone()
+        emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": eid}, {"id": eid}]})
+        if not emp:
+            try: emp = mongo_db.find_one("employees", {"_id": ObjectId(eid)})
+            except: pass
+            
         if not emp:
             continue
-        c.execute("""
-            SELECT COUNT(*) FROM leaves WHERE employee_id=? AND status='approved'
-            AND start_date <= ? AND end_date >= ?
-        """, (eid, date, date))
-        on_leave = c.fetchone()[0] > 0
-        c.execute("""
-            SELECT m.start_time, m.end_time, m.title FROM meetings m
-            LEFT JOIN meeting_attendees ma ON m.id = ma.meeting_id
-            WHERE m.date=? AND (m.organizer_id=? OR ma.employee_id=?)
-        """, (date, eid, eid))
-        meetings_that_day = [dict(r) for r in c.fetchall()]
+            
+        # Check leave in MongoDB
+        on_leave = mongo_db.find_one("leaves", {
+            "employee_id": eid,
+            "status": "approved",
+            "start_date": {"$lte": date},
+            "end_date": {"$gte": date}
+        }) is not None
+        
+        # Check meetings in MongoDB
+        meetings_that_day = mongo_db.find_many("meetings", {"date": date, "organizer_id": eid})
+        # Plus where they are an attendee
+        attended_meetings = mongo_db.find_many("meeting_attendees", {"employee_id": eid})
+        for am in attended_meetings:
+            m = mongo_db.find_one("meetings", {"_id": am.get("meeting_id"), "date": date})
+            if m:
+                meetings_that_day.append(m)
+                
         result[str(eid)] = {
             "name":     emp["name"],
             "on_leave": on_leave,
             "meetings": meetings_that_day,
         }
-    conn.close()
     return result
 
 # ════════════════════════════════════════════════════════════
@@ -1107,9 +1138,24 @@ router = APIRouter()
 async def sync_employees_endpoint():
     try:
         sync_employees_from_gsheet()
-        employees = _get_employees()
-        return {"success": True, "count": len(employees),
-                "message": f"Synced {len(employees)} employees ✅"}
+        count = mongo_db.count("employees")
+        return {"success": True, "count": count,
+                "message": f"Synced {count} employees ✅"}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+@router.post("/api/sync-all")
+async def sync_all_endpoint():
+    """Unified endpoint to sync everything from Sheets to MongoDB."""
+    try:
+        sync_employees_from_gsheet()
+        sync_leaves_from_gsheet()
+        sync_all_raw_sheets_to_mongo()
+        return {
+            "success": True,
+            "message": "Full synchronization from Google Sheets to MongoDB Atlas complete! 🚀",
+            "timestamp": mongo_db.now_iso()
+        }
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -1130,14 +1176,7 @@ async def authenticate(body: dict):
 
         sheet_user = authenticate_sheet_user(uid, name, pwd, dept)
         if sheet_user:
-            conn = get_db()
-            c = conn.cursor()
-            c.execute(
-                "SELECT * FROM employees WHERE gsheet_uid=? AND LOWER(name)=?",
-                (uid, name),
-            )
-            row = c.fetchone()
-            conn.close()
+            row = mongo_db.find_one("employees", {"gsheet_uid": uid, "name": {"$regex": f"^{name}$", "$options": "i"}})
 
             if row:
                 emp = _merge_sheet_identity(dict(row), sheet_user)
@@ -1155,16 +1194,11 @@ async def authenticate(body: dict):
     except Exception:
         pass
 
-    conn = get_db()
-    c = conn.cursor()
-    query = "SELECT * FROM employees WHERE gsheet_uid=? AND LOWER(name)=? AND gsheet_password=?"
-    args  = [uid, name, pwd]
+    query = {"gsheet_uid": uid, "name": {"$regex": f"^{name}$", "$options": "i"}, "gsheet_password": pwd}
     if dept and dept.lower() not in {"manager", "admin", "employee"}:
-        query += " AND department=?"
-        args.append(dept)
-    c.execute(query, args)
-    row = c.fetchone()
-    conn.close()
+        query["department"] = dept
+        
+    row = mongo_db.find_one("employees", query)
     if not row:
         raise HTTPException(401, "Invalid credentials")
     emp = _serialize_employee(dict(row))
@@ -1187,17 +1221,8 @@ async def list_departments():
     except Exception:
         pass
 
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("""
-        SELECT DISTINCT department
-        FROM employees
-        WHERE department IS NOT NULL AND TRIM(department) != ''
-        ORDER BY department
-    """)
-    result = [r["department"] for r in c.fetchall()]
-    conn.close()
-    return result
+    result = mongo_db.distinct("employees", "department")
+    return [d for d in result if d and str(d).strip()]
 
 # ── Employees ────────────────────────────────────────────────
 @router.get("/api/employees")
