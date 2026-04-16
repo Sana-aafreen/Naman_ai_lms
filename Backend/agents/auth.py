@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import os
-import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +15,6 @@ from jose import JWTError, jwt
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.getenv("CALENDAR_DB_PATH", BASE_DIR / "calendar.db"))
 
 JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -72,7 +70,7 @@ def authenticate_user(
         "gsheet_password": pwd
     }
     if dept:
-        query["department"] = dept
+        query["department"] = {"$regex": f"^{dept}$", "$options": "i"}
 
     user = mongo_db.find_one("employees", query)
     

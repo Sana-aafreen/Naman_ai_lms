@@ -223,13 +223,20 @@ def gsheet_get_rows(sheet_name: str) -> list:
             return []
 
 def sync_employees_from_gsheet():
+    print(f"  [Sync] Starting employee synchronization at {mongo_db.now_iso()}")
     api = get_sheets_api()
     if not api:
-        print("  - No Sheets API - using seeded employees.")
+        print("  [Sync] ERROR: No Sheets API available. (Check GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_API_KEY)")
         return
-    departments = gsheet_get_departments()
+    
+    try:
+        departments = gsheet_get_departments()
+    except Exception as e:
+        print(f"  [Sync] ERROR fetching departments: {e}")
+        return
+
     if not departments:
-        print("  - No departments found - using seeded employees.")
+        print("  [Sync] WARNING: No departments found - using seeded employees or existing data.")
         return
     
     synced = 0
@@ -274,12 +281,14 @@ def sync_employees_from_gsheet():
         {"id": "latest_sync"},
         {"$set": {
             "sheets": all_sheet_data,
-            "timestamp": mongo_db.now_iso()
+            "timestamp": mongo_db.now_iso(),
+            "status": "success",
+            "synced_count": synced
         }},
         upsert=True
     )
 
-    print(f"  OK: Synced {synced} employees and backed up all Sheets to MongoDB Atlas")
+    print(f"  [Sync] OK: Synced {synced} employees and backed up all Sheets at {mongo_db.now_iso()}")
 
 def sync_leaves_from_gsheet():
     """Sync the 'Leaves' sheet to MongoDB leaves collection."""

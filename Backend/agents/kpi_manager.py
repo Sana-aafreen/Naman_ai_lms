@@ -16,11 +16,15 @@ Role-aware:
 Work targets carry forward month-to-month if not updated.
 """
 
-from __future__ import annotations
-
+from datetime import datetime, timezone
 import json
 import mongo_db
+from typing import Any, Optional, List
 from bson import ObjectId
+from pathlib import Path
+import sys
+
+_AGENTS_DIR = Path(__file__).parent
 
 # -- Scoring constants ----------------------------------------------------------
 WORKING_DAYS_PER_MONTH = 22     # approximation

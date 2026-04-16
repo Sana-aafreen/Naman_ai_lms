@@ -83,9 +83,10 @@ Integrated Agents & Services:
 import json
 import os
 import sys
+from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import uvicorn
 from dotenv import load_dotenv
@@ -96,6 +97,8 @@ from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
 AGENTS_DIR = BASE_DIR / "agents"
+
+from agents.auth import authenticate_and_issue_token
 
 load_dotenv(BASE_DIR / ".env")
 
@@ -126,10 +129,13 @@ from agents.kpi_manager import (  # noqa: E402
     get_org_kpi,
     set_work_rating,
 )
-from services.sheets import (  # noqa: E402
-    authenticate_user,
-    get_departments,
-    get_sheets_api,
+from agents.profile_manager import (
+    CourseGenerationRequest,
+    PublishCourseRequest,
+    QuizSubmissionRequest,
+    ProfileUpdateRequest,
+    MonitoringChatRequest,
+    MonitoringInsightsRequest,
 )
 
 from fastapi import FastAPI
@@ -142,7 +148,7 @@ async def lifespan(app: FastAPI):
     print("\n  NamanDarshan LMS | General Startup")
     print("  " + ("-" * 52))
 
-    # Initialize MongoDB Schema
+    # Initialize MongoDB Connection
     try:
         init_mongodb()
         print("  [Main] MongoDB initialized")
@@ -152,12 +158,16 @@ async def lifespan(app: FastAPI):
 
     import asyncio
     from agents.calendar_manager import init_db, sync_employees_from_gsheet, get_gcal_api
-    from agents.growth_tracker_mongo import init_growth_tracker_db
+    from agents.Growth_tracker import init_growth_tracker_db
     from agents.kpi_manager import init_kpi_db
     
-    init_db()
-    init_growth_tracker_db()
-    init_kpi_db()
+    # Initialize DB Schemas
+    try:
+        init_db()
+        init_growth_tracker_db()
+        init_kpi_db()
+    except Exception as e:
+        print(f"  [Main] DB Schema init warning: {e}")
     
     # Run heavy sync in background to avoid blocking port binding
     def run_sync_blocking():
@@ -169,11 +179,11 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"  [Background] Sync failed: {e}")
 
-    # Use run_in_executor to avoid blocking the async event loop
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, run_sync_blocking)
+    # Use to_thread for safe non-blocking execution of sync tasks
+    asyncio.create_task(asyncio.to_thread(run_sync_blocking))
     
-    print("  http://localhost:8000 (Binding complete)\n")
+    port = int(os.environ.get("PORT", 8000))
+    print(f"  Server available on port {port} (Binding complete)\n")
     yield
 
 app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
@@ -182,6 +192,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 app.include_router(calendar_router)
 app.include_router(whats_new_router)
 app.include_router(career_router)
+app.include_router(profile_router)
 from agents.Course_generator import router as course_gen_router
 app.include_router(course_gen_router)
 
@@ -234,55 +245,27 @@ def _gemini_fallback(prompt: str, system: str = "") -> str:
 
 # -- Profile DB helpers --------------------------------------------------------
 
-def _profile_db_path() -> Path:
-    """Reuse the same SQLite DB that calendar_manager already uses."""
-    from agents.calendar_manager import DB_PATH  # imported lazily to avoid circular issues
-    return Path(DB_PATH)
-
-
-def _get_profile_conn():
-    import sqlite3
-    conn = sqlite3.connect(_profile_db_path())
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def _ensure_profile_table() -> None:
-    conn = _get_profile_conn()
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS user_profiles (
-                user_id      TEXT PRIMARY KEY,
-                bio          TEXT    DEFAULT '',
-                avatar_url   TEXT    DEFAULT '',
-                skills       TEXT    DEFAULT '[]',
-                goals        TEXT    DEFAULT '',
-                phone        TEXT    DEFAULT '',
-                linkedin     TEXT    DEFAULT '',
-                updated_at   TEXT    DEFAULT (datetime('now'))
-            )
-        """)
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def _get_progress_summary(user_id: str) -> dict:
-    conn = _get_profile_conn()
+    """Pull courses_done and avg_score from MongoDB analytics."""
     try:
-        cur = conn.execute(
-            "SELECT COUNT(*) as cnt, AVG(score) as avg FROM quiz_results WHERE user_id = ?",
-            (user_id,),
-        )
-        row = cur.fetchone()
-        return {
-            "courses_done": row["cnt"] if row else 0,
-            "avg_score":    round(row["avg"] or 0, 1) if row else 0.0,
-        }
-    except Exception:  # noqa: BLE001  table may not exist yet
-        return {"courses_done": 0, "avg_score": 0.0}
-    finally:
-        conn.close()
+        pipeline = [
+            {"$match": {"user_id": user_id}},
+            {"$group": {
+                "_id": "$user_id",
+                "cnt": {"$sum": 1},
+                "avg": {"$avg": "$score"}
+            }}
+        ]
+        results = mongo_db.aggregate("quiz_results", pipeline)
+        if results:
+            row = results[0]
+            return {
+                "courses_done": row.get("cnt", 0),
+                "avg_score":    round(row.get("avg", 0) or 0, 1),
+            }
+    except Exception:
+        pass
+    return {"courses_done": 0, "avg_score": 0.0}
 
 
 # -- Pydantic models -----------------------------------------------------------
@@ -298,55 +281,6 @@ class LoginRequest(BaseModel):
     userName: str
     password: str
     department: str
-
-
-class CourseGenerationRequest(BaseModel):
-    department: str
-    relatedQueries: Optional[list[str]] = None
-
-
-class PublishCourseRequest(BaseModel):
-    department: str
-    title: str
-    summary: str = ""
-    audience: str = ""
-    pdf_path: str
-    pdf_filename: Optional[str] = None
-    generated_at: str = ""
-    source_notes: list[str] = []
-    modules: list[dict] = []
-    quiz_questions: list[dict] = []
-
-
-class QuizSubmissionRequest(BaseModel):
-    answers: list[dict]
-
-
-class ProfileUpdateRequest(BaseModel):
-    bio:        str       = ""
-    phone:      str       = ""
-    linkedin:   str       = ""
-    goals:      str       = ""
-    skills:     list[str] = []
-    avatar_url: str       = ""   # base64 data-uri, max ~2 MB
-
-
-class KPIWorkRatingRequest(BaseModel):
-    employee_id:  str
-    department:   str
-    month:        str         # "YYYY-MM"
-    work_target:  float = 100
-    work_actual:  float = 0
-    notes:        str   = ""
-
-
-class MonitoringChatRequest(BaseModel):
-    user_id:    str
-    name:       str
-    role:       str
-    department: str
-    message:    str
-    history:    list[dict] = []   # [{role, text}, ...]
 
 
 class MonitoringInsightsRequest(BaseModel):
@@ -395,30 +329,27 @@ async def ai_chat(req: AIChatRequest):
 
 @app.post("/api/login")
 async def login_alias(req: LoginRequest):
-    user = authenticate_user(req.userId, req.userName, req.password, req.department)
-    if not user:
+    try:
+        result = authenticate_and_issue_token(req.userId, req.userName, req.password, req.department)
+        
+        # Format for frontend compatibility
+        employee = result["user"]
+        return {
+            "success": True,
+            "user": {
+                "userId":     employee.get("gsheet_uid", employee.get("id", "")),
+                "userName":   employee.get("name", ""),
+                "department": employee.get("department", ""),
+                "role":       employee.get("role", "Employee"),
+                "token":      result["token"],
+            },
+            "token": result["token"],
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"[Login] Error: {e}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    normalized_user = {
-        "id":         str(user.get("userId", "")),
-        "name":       user.get("userName", ""),
-        "department": user.get("department", ""),
-        "role":       user.get("role", "Employee"),
-        "email":      user.get("email", ""),
-    }
-    token = _create_auth_token(normalized_user)
-
-    return {
-        "success": True,
-        "user": {
-            "userId":     normalized_user["id"],
-            "userName":   normalized_user["name"],
-            "department": normalized_user["department"],
-            "role":       normalized_user["role"],
-            "token":      token,
-        },
-        "token": token,
-    }
 
 
 @app.get("/api/employees")
@@ -696,51 +627,11 @@ async def list_sops(department: Optional[str] = Query(default=None)):
 
 @app.get("/api/profile/{user_id}")
 async def get_profile(user_id: str, authorization: Optional[str] = Header(default=None)):
+    from agents.profile_manager import get_user_profile
     current_user = _get_current_user(authorization)
-    # Users can only read their own profile; Admins can read anyone's
     if current_user.get("sub") != user_id and current_user.get("role") != "Admin":
         raise HTTPException(status_code=403, detail="Forbidden")
-
-    conn = _get_profile_conn()
-    try:
-        row = conn.execute(
-            "SELECT * FROM user_profiles WHERE user_id = ?", (user_id,)
-        ).fetchone()
-
-        # Best-effort join date from employees table
-        emp_row = conn.execute(
-            "SELECT created_at FROM employees WHERE id = ?", (user_id,)
-        ).fetchone()
-        joined = emp_row["created_at"] if emp_row and emp_row["created_at"] else ""
-    finally:
-        conn.close()
-
-    progress = _get_progress_summary(user_id)
-
-    if row is None:
-        return {
-            "user_id":     user_id,
-            "bio":         "",
-            "avatar_url":  "",
-            "skills":      [],
-            "goals":       "",
-            "phone":       "",
-            "linkedin":    "",
-            "joined_date": joined,
-            **progress,
-        }
-
-    return {
-        "user_id":     row["user_id"],
-        "bio":         row["bio"],
-        "avatar_url":  row["avatar_url"],
-        "skills":      json.loads(row["skills"] or "[]"),
-        "goals":       row["goals"],
-        "phone":       row["phone"],
-        "linkedin":    row["linkedin"],
-        "joined_date": joined,
-        **progress,
-    }
+    return get_user_profile(user_id)
 
 
 @app.post("/api/profile/{user_id}")
@@ -749,44 +640,11 @@ async def save_profile(
     req: ProfileUpdateRequest,
     authorization: Optional[str] = Header(default=None),
 ):
+    from agents.profile_manager import update_user_profile
     current_user = _get_current_user(authorization)
     if current_user.get("sub") != user_id and current_user.get("role") != "Admin":
         raise HTTPException(status_code=403, detail="Forbidden")
-
-    if len(req.avatar_url) > 2_600_000:   # ~2 MB base64
-        raise HTTPException(status_code=413, detail="Avatar image exceeds 2 MB limit")
-
-    conn = _get_profile_conn()
-    try:
-        conn.execute(
-            """
-            INSERT INTO user_profiles
-                (user_id, bio, phone, linkedin, goals, skills, avatar_url, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            ON CONFLICT(user_id) DO UPDATE SET
-                bio        = excluded.bio,
-                phone      = excluded.phone,
-                linkedin   = excluded.linkedin,
-                goals      = excluded.goals,
-                skills     = excluded.skills,
-                avatar_url = excluded.avatar_url,
-                updated_at = datetime('now')
-            """,
-            (
-                user_id,
-                req.bio,
-                req.phone,
-                req.linkedin,
-                req.goals,
-                json.dumps(req.skills),
-                req.avatar_url,
-            ),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    return {"status": "ok"}
+    return update_user_profile(user_id, req.model_dump())
 
 
 # -- Monitoring AI routes ------------------------------------------------------
@@ -855,28 +713,9 @@ def _build_monitoring_system_prompt(
 
 @app.post("/api/monitoring/chat")
 async def monitoring_chat(req: MonitoringChatRequest, authorization: Optional[str] = Header(default=None)):
-    _get_current_user(authorization)   # require auth
-
-    # Ensure table exists
-    try:
-        _ensure_profile_table()
-    except Exception:
-        pass  # Continue even if table creation fails
-
-    profile = None
-    try:
-        conn = _get_profile_conn()
-        try:
-            row = conn.execute(
-                "SELECT * FROM user_profiles WHERE user_id = ?", (req.user_id,)
-            ).fetchone()
-            if row:
-                profile = dict(row)
-                profile["skills"] = json.loads(profile.get("skills") or "[]")
-        finally:
-            conn.close()
-    except Exception:
-        pass  # Continue with None profile if query fails
+    from agents.profile_manager import get_user_profile
+    current_user = _get_current_user(authorization)
+    profile = get_user_profile(req.user_id)
 
     from datetime import datetime
     now = datetime.now()
@@ -896,28 +735,9 @@ async def monitoring_chat(req: MonitoringChatRequest, authorization: Optional[st
 
 @app.post("/api/monitoring/insights")
 async def monitoring_insights(req: MonitoringInsightsRequest, authorization: Optional[str] = Header(default=None)):
-    _get_current_user(authorization)   # require auth
-
-    # Ensure table exists
-    try:
-        _ensure_profile_table()
-    except Exception:
-        pass  # Continue even if table creation fails
-
-    profile = None
-    try:
-        conn = _get_profile_conn()
-        try:
-            row = conn.execute(
-                "SELECT * FROM user_profiles WHERE user_id = ?", (req.user_id,)
-            ).fetchone()
-            if row:
-                profile = dict(row)
-                profile["skills"] = json.loads(profile.get("skills") or "[]")
-        finally:
-            conn.close()
-    except Exception:
-        pass  # Continue with None profile if query fails
+    from agents.profile_manager import get_user_profile
+    _get_current_user(authorization)
+    profile = get_user_profile(req.user_id)
 
     progress = _get_progress_summary(req.user_id)
     goals    = (profile or {}).get("goals", "None set")
