@@ -207,7 +207,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
 
-# Global Error Handler to log 500 errors for diagnostics
+# -- PERMANENT CORS FIX (MUST BE FIRST) ----------------------------------------
+# We use allow_origins=["*"] for production flexibility between Vercel and Render.
+# This ensures that preflight (OPTIONS) requests are never rejected with 405.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
+# Global Error Handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     print(f"\n[ERROR] Unhandled Exception at {request.url}")
@@ -216,22 +228,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal Server Error. Check server logs for details."},
     )
-
-# CORS Configuration - Explicitly allow Vercel and local development
-ALLOWED_ORIGINS = [
-    "https://naman-ai-lms.vercel.app",
-    "https://naman-ai-lms.onrender.com",
-    "http://localhost:3000",
-    "http://localhost:5173",
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False, # Set to False for broader compatibility with '*' or lists
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 app.include_router(calendar_router)
 app.include_router(whats_new_router)
