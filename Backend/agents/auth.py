@@ -64,9 +64,6 @@ def authenticate_user(
     pwd = str(password).strip()
     dept = str(department).strip()
 
-    # Diagnostic logging (Safe, only logs ID)
-    print(f"[Auth] Attempting login: ID='{uid}' (department: '{dept}')")
-
     # Use re.escape to handle any special characters in the UID safely
     safe_uid = re.escape(uid)
     query = {
@@ -75,18 +72,18 @@ def authenticate_user(
     }
     
     if dept:
-        safe_dept = re.escape(dept)
-        query["department"] = {"$regex": f"^{safe_dept}$", "$options": "i"}
+        # If the provided "department" is actually one of our role names,
+        # we check the role instead of the department field to allow login 
+        # (e.g. frontend sends 'Manager' during manager login).
+        if dept.lower() in ["manager", "admin"]:
+            query["role"] = {"$regex": f"^{re.escape(dept)}$", "$options": "i"}
+        else:
+            safe_dept = re.escape(dept)
+            query["department"] = {"$regex": f"^{safe_dept}$", "$options": "i"}
 
     user = mongo_db.find_one("employees", query)
     
     if not user:
-        # Diagnostic: check if user exists at all (ignoring password)
-        exists = mongo_db.find_one("employees", {"gsheet_uid": {"$regex": f"^{safe_uid}$", "$options": "i"}})
-        if exists:
-            print(f"[Auth] FAILED: User '{uid}' found, but password or department mismatched.")
-        else:
-            print(f"[Auth] FAILED: User '{uid}' not found in 'employees' collection.")
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     print(f"[Auth] SUCCESS: User '{uid}' authenticated as role '{user.get('role')}'")
