@@ -2260,24 +2260,8 @@ def _get_course_db():
     return db
 
 
-# ── Startup ───────────────────────────────────────────────────────────────────
-
-@router.on_event("startup")
-async def warm_backend_services():
-    if _LMS_AVAILABLE:
-        try:
-            get_sheets_api()
-            get_departments()
-            init_growth_tracker_db()
-            get_ai_chat_agent()
-            get_course_generator_agent()
-        except Exception as e:
-            print(f"WARN: LMS startup tasks failed: {e}")
-    _ensure_profile_table()
-    try:
-        _get_course_db()
-    except Exception:
-        pass
+# ── Startup ──
+# (No longer using @router.on_event("startup") to avoid lifespan conflict in main.py)
 
 
 # ── LMS Routes ────────────────────────────────────────────────────────────────
