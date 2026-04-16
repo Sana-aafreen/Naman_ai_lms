@@ -240,6 +240,63 @@ def find_value(r, keys, default=""):
     return default
 
 
+def sync_employees_from_csv():
+    """Sync employees from local CSV files in the assets folder."""
+    print("  [Sync] Starting sync from local CSV files...")
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    ASSETS_DIR = BASE_DIR / "assets"
+    
+    csv_files = [
+        "NamanLMS - Employees.csv",
+        "NamanLMS - Manager.csv",
+        "NamanLMS - Admin.csv"
+    ]
+    
+    synced = 0
+    for filename in csv_files:
+        path = ASSETS_DIR / filename
+        if not path.exists():
+            print(f"  [Sync] File not found: {path}")
+            continue
+            
+        try:
+            with open(path, mode="r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    uid  = find_value(row, ["User_id", "id", "uid", "emp_id", "employee_id"])
+                    name = find_value(row, ["User_name", "name", "employee_name", "full_name"])
+                    pwd  = find_value(row, ["Password", "pass", "pwd"])
+                    dept = find_value(row, ["Department", "dept", "dep"])
+                    role = find_value(row, ["Role", "access", "type"], "employee").lower()
+                    
+                    if not uid or not name:
+                        continue
+                    
+                    email = find_value(row, ["Email", "e-mail", "mail"])
+                    if not email:
+                        email = f"{uid.lower().replace(' ', '.')}@company.com"
+                    
+                    # Upsert into MongoDB
+                    mongo_db.update_one(
+                        "employees",
+                        {"gsheet_uid": uid},
+                        {"$set": {
+                            "name": name,
+                            "department": dept,
+                            "role": role,
+                            "gsheet_uid": uid,
+                            "gsheet_password": pwd,
+                            "email": email,
+                            "updated_at": mongo_db.now_iso()
+                        }},
+                        upsert=True
+                    )
+                    synced += 1
+        except Exception as e:
+            print(f"  [Sync] Error processing {filename}: {e}")
+            
+    print(f"  [Sync] OK: Synced {synced} employees from local CSV files")
+
 def sync_employees_from_gsheet():
     """Sync employee roster from Google Sheets to MongoDB as a background task."""
     print("  [Sync] Starting background sync from Google Sheets...")

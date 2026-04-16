@@ -226,16 +226,22 @@ app.add_middleware(
 # Global Error Handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    print(f"\n[ERROR] Unhandled Exception at {request.url}")
-    print(traceback.format_exc())
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        content = {"detail": exc.detail}
+    else:
+        print(f"\n[ERROR] Unhandled Exception at {request.url}")
+        print(traceback.format_exc())
+        status_code = 500
+        content = {"detail": "Internal Server Error. Check server logs for details."}
     
     response = JSONResponse(
-        status_code=500,
-        content={"detail": "Internal Server Error. Check server logs for details."},
+        status_code=status_code,
+        content=content,
     )
     
-    # Manually add CORS headers to the error response to avoid "CORS block" in browser
-    # instead of the actual error detail.
+    # Manually add CORS headers to the error response to avoid "CORS block" 
+    # and instead show the actual error status in the frontend/browser console.
     response.headers["Access-Control-Allow-Origin"] = "https://naman-ai-lms.vercel.app"
     response.headers["Access-Control-Allow-Methods"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "*"
