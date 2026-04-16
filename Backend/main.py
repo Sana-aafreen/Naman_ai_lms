@@ -175,16 +175,18 @@ async def lifespan(app: FastAPI):
     def run_sync_blocking():
         from agents.calendar_manager import sync_employees_from_gsheet, sync_employees_from_csv, get_gcal_api
         
-        # 1. Sync from local CSVs first (high reliability)
+        # 1. Sync from Google Sheets (Primary source)
+        print("  [Background] Syncing employees from Google Sheet...")
+        try:
+            sync_employees_from_gsheet()
+        except Exception as e:
+            print(f"  [Background] Google Sheets sync failed: {e}")
+
+        # 2. Sync from local CSVs (Secondary/Fallback)
         try:
             sync_employees_from_csv()
         except Exception as e:
             print(f"  [Background] Local CSV sync failed: {e}")
-
-        # 2. Sync from Google Sheets (optional real-time source)
-        print("  [Background] Syncing employees from Google Sheet...")
-        try:
-            sync_employees_from_gsheet()
             
             # Diagnostic: how many employees do we have now?
             try:

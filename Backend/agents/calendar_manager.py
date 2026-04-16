@@ -177,56 +177,22 @@ def get_sheets_api():
         return None
 
 def gsheet_get_departments() -> list:
-    api = get_sheets_api()
-    if not api:
-        return []
+    """Fetch department names from the 'Employees' sheet."""
     try:
-        meta = api.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
-        return [s["properties"]["title"]
-                for s in meta["sheets"]
-                if s["properties"]["title"].lower() != "master"]
+        from services.sheets import get_departments
+        return get_departments()
     except Exception as e:
         print(f"WARN: Sheets departments error: {e}")
         return []
 
 def gsheet_get_rows(sheet_name: str) -> list:
-    api = get_sheets_api()
-    if not api:
-        try:
-            from services.sheets import ensure_dummy_manager_row
-            return ensure_dummy_manager_row([], sheet_name)
-        except Exception:
-            return []
+    """Fetch all rows from a specific sheet as dictionaries."""
     try:
-        result = api.spreadsheets().values().get(
-            spreadsheetId=SPREADSHEET_ID,
-            range=f"'{sheet_name}'!A:Z"
-        ).execute()
-        rows = result.get("values", [])
-        if len(rows) < 2:
-            try:
-                from services.sheets import ensure_dummy_manager_row
-                return ensure_dummy_manager_row([], sheet_name)
-            except Exception:
-                return []
-        headers = [h.strip() for h in rows[0]]
-        mapped_rows = [
-            {headers[i]: (row[i] if i < len(row) else "")
-             for i in range(len(headers))}
-            for row in rows[1:]
-        ]
-        try:
-            from services.sheets import ensure_dummy_manager_row
-            return ensure_dummy_manager_row(mapped_rows, sheet_name)
-        except Exception:
-            return mapped_rows
+        from services.sheets import get_sheet_data
+        return get_sheet_data(sheet_name)
     except Exception as e:
         print(f"WARN: Sheets rows error ({sheet_name}): {e}")
-        try:
-            from services.sheets import ensure_dummy_manager_row
-            return ensure_dummy_manager_row([], sheet_name)
-        except Exception:
-            return []
+        return []
 
 # -- Helpers ---------------------------------------------------------------------
 
@@ -308,75 +274,54 @@ def sync_employees_from_gsheet():
         print("  [Sync] No SPREADSHEET_ID set - skipping Sheets sync.")
         return
     
-    try:
-        departments = gsheet_get_departments()
-    except Exception as e:
-        print(f"  [Sync] ERROR fetching departments: {e}")
-        return
-
-    if not departments:
-        print("  [Sync] WARNING: No departments found - using seeded employees or existing data.")
-        return
-    
     synced = 0
-    all_sheet_data = [] # For "save all sheets" requirement
+    target_tabs = ["Employees", "Manager", "Admin"]
     
-    for idx, dept in enumerate(departments):
-        color = AVATAR_COLORS[idx % len(AVATAR_COLORS)]
+    for tab in target_tabs:
         try:
-            rows = gsheet_get_rows(dept)
-        except Exception:
-            continue
-        
-        # Track all raw data
-        all_sheet_data.append({"sheet_name": dept, "rows": rows, "updated_at": mongo_db.now_iso()})
-
-        for row in rows:
-            uid  = find_value(row, ["User_id", "id", "uid", "emp_id", "employee_id"])
-            name = find_value(row, ["User_name", "name", "employee_name", "full_name"])
-            pwd  = find_value(row, ["Password", "pass", "pwd"])
-
-            if not uid or not name:
+            rows = gsheet_get_rows(tab)
+            if not rows:
+                print(f"  [Sync] No data found in tab: {tab}")
                 continue
+                
+            tab_synced = 0
+            for row in rows:
+                uid  = find_value(row, ["User_id", "id", "uid", "emp_id", "employee_id"]).strip()
+                name = find_value(row, ["User_name", "name", "employee_name", "full_name"]).strip()
+                pwd  = find_value(row, ["Password", "pass", "pwd"]).strip()
+                dept = find_value(row, ["Department", "dept", "dep", "Dep"]).strip()
+                role = find_value(row, ["Role", "access", "type"], "employee").strip().lower()
 
-            email = find_value(row, ["Email", "e-mail", "mail"])
-            if not email:
-                email = f"{uid.lower().replace(' ', '.')}@company.com"
+                if not uid or not name:
+                    continue
 
-            role  = find_value(row, ["Role", "access", "type"], "employee").lower()
+                email = find_value(row, ["Email", "e-mail", "mail"]).strip()
+                if not email:
+                    email = f"{uid.lower().replace(' ', '.')}@company.com"
+
+                # Upsert into MongoDB
+                mongo_db.update_one(
+                    "employees",
+                    {"gsheet_uid": uid},
+                    {"$set": {
+                        "name": name,
+                        "department": dept or tab,
+                        "role": role,
+                        "gsheet_uid": uid,
+                        "gsheet_password": pwd,
+                        "email": email,
+                        "updated_at": mongo_db.now_iso()
+                    }},
+                    upsert=True
+                )
+                tab_synced += 1
             
-            # Upsert into MongoDB
-            mongo_db.update_one(
-                "employees",
-                {"gsheet_uid": uid}, # Query by UID now as it's the primary stable ID
-                {"$set": {
-                    "name": name,
-                    "department": dept,
-                    "role": role,
-                    "avatar_color": color,
-                    "gsheet_uid": uid,
-                    "gsheet_password": pwd,
-                    "email": email,
-                    "updated_at": mongo_db.now_iso()
-                }},
-                upsert=True
-            )
-            synced += 1
-            
-    # Also save ALL sheets data into a dedicated collection for backup/reference as requested
-    mongo_db.update_one(
-        "sheets_backup",
-        {"id": "latest_sync"},
-        {"$set": {
-            "sheets": all_sheet_data,
-            "timestamp": mongo_db.now_iso(),
-            "status": "success",
-            "synced_count": synced
-        }},
-        upsert=True
-    )
+            print(f"  [Sync] Loaded {tab_synced} users from Sheet tab: {tab}")
+            synced += tab_synced
+        except Exception as e:
+            print(f"  [Sync] ERROR syncing tab {tab}: {e}")
 
-    print(f"  [Sync] OK: Synced {synced} employees and backed up all Sheets at {mongo_db.now_iso()}")
+    print(f"  [Sync] OK: Total {synced} employees synced from Google Sheets at {mongo_db.now_iso()}")
 
 def sync_leaves_from_gsheet():
     """Sync the 'Leaves' sheet to MongoDB leaves collection."""
