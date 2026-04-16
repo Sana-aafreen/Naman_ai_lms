@@ -58,6 +58,9 @@ try:
 except ImportError:
     pass
 
+from fastapi import Depends, Header, HTTPException
+from .auth import decode_token, normalize_role
+
 # ── Gemini ─────────────────────────────────────────────────
 try:
     from google import genai
@@ -539,17 +542,20 @@ def gsheet_get_rows(sheet_name: str) -> list:
         return []
 
 
-# Combined sync logic moved to top of file (line 224)
+# -- Auth Helpers (Delegated to auth.py) ----------------------------------------
 
+def _get_current_user(authorization: Optional[str]) -> dict:
+    if not authorization:
+        raise HTTPException(401, "Not authenticated")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(401, "Invalid authorization header")
+    return decode_token(token)
 
-def _normalize_role(raw_role) -> str:
-    role = str(raw_role or "employee").strip().lower()
-    if role == "admin":
-        return "Admin"
-    if role == "manager":
-        return "Manager"
-    return "Employee"
+def _normalize_role(role: Any) -> str:
+    return normalize_role(role)
 
+# -- End of Auth Helpers --
 
 def _serialize_employee(emp: dict) -> dict:
     clean_emp = dict(emp)
@@ -565,40 +571,6 @@ def _merge_sheet_identity(emp: dict, sheet_user: dict) -> dict:
     merged["email"] = sheet_user.get("email", merged.get("email", ""))
     merged["name"] = sheet_user.get("userName", merged.get("name", ""))
     return _serialize_employee(merged)
-
-
-def _b64url_encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
-
-
-def _b64url_decode(data: str) -> bytes:
-    padding = "=" * (-len(data) % 4)
-    return base64.urlsafe_b64decode(data + padding)
-
-
-def _create_auth_token(user: dict) -> str:
-    header = {"alg": "HS256", "typ": "JWT"}
-    payload = {
-        "sub": str(user["id"]),
-        "name": user.get("name", ""),
-        "role": user.get("role", "Employee"),
-        "department": user.get("department", ""),
-        "email": user.get("email", ""),
-        "exp": int(time.time()) + AUTH_TOKEN_TTL_SECONDS,
-    }
-    header_segment = _b64url_encode(
-        json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")
-    )
-    payload_segment = _b64url_encode(
-        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
-    )
-    signing_input = f"{header_segment}.{payload_segment}"
-    signature = hmac.new(
-        AUTH_TOKEN_SECRET.encode("utf-8"),
-        signing_input.encode("ascii"),
-        hashlib.sha256,
-    ).digest()
-    return f"{signing_input}.{_b64url_encode(signature)}"
 
 
 def _decode_auth_token(token: str) -> dict:
@@ -1193,51 +1165,20 @@ async def sync_all_endpoint():
     except Exception as e:
         raise HTTPException(500, str(e))
 
-# ── Auth ─────────────────────────────────────────────────────
-@router.post("/api/authenticate")
-async def authenticate(body: dict):
-    uid  = str(body.get("user_id",   "")).strip()
-    name = str(body.get("user_name", "")).strip().lower()
-    pwd  = str(body.get("password",  "")).strip()
-    dept = str(body.get("department","")).strip()
+# -- Auth Helpers (Delegated to auth.py) ----------------------------------------
 
-    try:
-        import sys
-        backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        if backend_root not in sys.path:
-            sys.path.insert(0, backend_root)
-        from services.sheets import authenticate_user as authenticate_sheet_user
+def _get_current_user(authorization: Optional[str]) -> dict:
+    if not authorization:
+        raise HTTPException(401, "Not authenticated")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(401, "Invalid authorization header")
+    return decode_token(token)
 
-        sheet_user = authenticate_sheet_user(uid, name, pwd, dept)
-        if sheet_user:
-            row = mongo_db.find_one("employees", {"gsheet_uid": uid, "name": {"$regex": f"^{name}$", "$options": "i"}})
+def _normalize_role(role: Any) -> str:
+    return normalize_role(role)
 
-            if row:
-                emp = _merge_sheet_identity(dict(row), sheet_user)
-            else:
-                emp = {
-                    "id": str(sheet_user.get("userId", "")),
-                    "name": sheet_user.get("userName", ""),
-                    "department": sheet_user.get("department", ""),
-                    "role": sheet_user.get("role", "Employee"),
-                    "email": sheet_user.get("email", ""),
-                }
-                emp = _serialize_employee(emp)
-            token = _create_auth_token(emp)
-            return {"token": token, "user": emp}
-    except Exception:
-        pass
-
-    query = {"gsheet_uid": uid, "name": {"$regex": f"^{name}$", "$options": "i"}, "gsheet_password": pwd}
-    if dept and dept.lower() not in {"manager", "admin", "employee"}:
-        query["department"] = dept
-        
-    row = mongo_db.find_one("employees", query)
-    if not row:
-        raise HTTPException(401, "Invalid credentials")
-    emp = _serialize_employee(dict(row))
-    token = _create_auth_token(emp)
-    return {"token": token, "user": emp}
+# -- End of Auth Helpers --
 
 
 @router.get("/api/departments")
@@ -1258,17 +1199,19 @@ async def list_departments():
     result = mongo_db.distinct("employees", "department")
     return [d for d in result if d and str(d).strip()]
 
-# ── Employees ────────────────────────────────────────────────
 @router.get("/api/employees")
 async def list_employees():
     employees = []
-    for employee in _get_employees():
-        normalized = _serialize_employee(employee)
+    # Fetch from Mongo
+    for employee in mongo_db.find_many("employees", {}):
         employees.append({
-            **normalized,
-            "userId": str(normalized.get("gsheet_uid") or normalized.get("id") or ""),
-            "userName": normalized.get("name", ""),
-            "status": "Active",
+            "id":       employee.get("gsheet_uid", str(employee.get("_id"))),
+            "userId":   employee.get("gsheet_uid", str(employee.get("_id"))),
+            "userName": employee.get("name", ""),
+            "name":     employee.get("name", ""),
+            "department": employee.get("department", "General"),
+            "role":     employee.get("role", "Employee"),
+            "status":   "Active",
         })
     return employees
 

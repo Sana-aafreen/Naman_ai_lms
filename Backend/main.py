@@ -121,7 +121,7 @@ from agents.Growth_tracker import (  # noqa: E402
     submit_course_quiz,
 )
 from agents.Monitoring_agent import MonitoringAgent  # noqa: E402
-from agents.calendar_manager import router as calendar_router, _create_auth_token, _get_current_user, _get_calendar_events  # noqa: E402
+from agents.calendar_manager import router as calendar_router, _get_calendar_events  # noqa: E402
 from whats_new_routes import router as whats_new_router  # noqa: E402
 
 from agents.kpi_manager import (  # noqa: E402
@@ -368,6 +368,28 @@ async def ai_chat(req: AIChatRequest):
     )
 
 
+@app.get("/api/authenticate")
+async def verify_auth_status(authorization: Optional[str] = Header(default=None)):
+    """
+    Check if the auth endpoint is reachable. 
+    If a valid token is provided, returns current user info.
+    """
+    if not authorization:
+        return {
+            "success": True,
+            "status": "ready",
+            "message": "NamanDarshan Auth API is active. Use POST to login."
+        }
+    
+    try:
+        # Attempt to verify token if provided
+        from agents.calendar_manager import _get_current_user
+        user = _get_current_user(authorization)
+        return {"success": True, "authenticated": True, "user": user}
+    except Exception:
+        return {"success": False, "authenticated": False, "message": "Invalid token"}
+
+
 @app.post("/api/login")
 @app.post("/api/authenticate")
 async def login_alias(req: LoginRequest):
@@ -379,10 +401,16 @@ async def login_alias(req: LoginRequest):
         return {
             "success": True,
             "user": {
+                # Legacy keys
                 "userId":     employee.get("gsheet_uid", employee.get("id", "")),
                 "userName":   employee.get("name", ""),
+                # Frontend expected keys
+                "id":         employee.get("gsheet_uid", employee.get("id", "")),
+                "name":       employee.get("name", ""),
                 "department": employee.get("department", ""),
                 "role":       employee.get("role", "Employee"),
+                "email":      employee.get("email", ""),
+                "avatar_color": employee.get("avatar_color", ""),
                 "token":      result["token"],
             },
             "token": result["token"],
