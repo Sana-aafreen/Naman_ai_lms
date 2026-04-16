@@ -27,6 +27,7 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.database import Database
 from pymongo.collection import Collection
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from bson.objectid import ObjectId
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -170,11 +171,22 @@ def _create_indexes() -> None:
         print(f"  [Mongo] Warning creating indexes: {safe_err}")
 
 
-# -- Helper Functions ----------------------------------------------------------
-
 def now_iso() -> str:
     """Get current UTC datetime as ISO string."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def clean_doc(doc: Any) -> Any:
+    """
+    Recursively convert MongoDB-specific types (like ObjectId) to JSON-serializable formats.
+    """
+    if isinstance(doc, list):
+        return [clean_doc(x) for x in doc]
+    if isinstance(doc, dict):
+        return {k: clean_doc(v) for k, v in doc.items()}
+    if isinstance(doc, ObjectId):
+        return str(doc)
+    return doc
 
 
 def insert_one(collection_name: str, document: Dict[str, Any]) -> str:
@@ -207,7 +219,8 @@ def find_one(
 ) -> Optional[Dict[str, Any]]:
     """Find one document matching the query."""
     db = get_db()
-    return db[collection_name].find_one(query, projection=projection)
+    res = db[collection_name].find_one(query, projection=projection)
+    return clean_doc(res) if res else None
 
 
 def find_many(
@@ -232,7 +245,7 @@ def find_many(
     if limit > 0:
         cursor = cursor.limit(limit)
     
-    return list(cursor)
+    return [clean_doc(doc) for doc in list(cursor)]
 
 
 def update_one(
@@ -296,17 +309,10 @@ def aggregate(
 ) -> List[Dict[str, Any]]:
     """
     Run an aggregation pipeline.
-    
-    Example:
-        pipeline = [
-            {"$match": {"department": "Sales"}},
-            {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-        ]
-        results = aggregate("quiz_results", pipeline)
     """
     db = get_db()
-    return list(db[collection_name].aggregate(pipeline))
+    results = list(db[collection_name].aggregate(pipeline))
+    return [clean_doc(res) for res in results]
 
 
 # -- Collection Helpers ----------------------------------------------------------
