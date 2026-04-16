@@ -27,7 +27,9 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from agents.auth import get_current_user, get_db  # reuse your existing helpers
+from agents.auth import get_current_user
+import mongo_db
+from bson import ObjectId
 
 load_dotenv()
 
@@ -57,42 +59,25 @@ def _gemini(prompt: str, system: str = "") -> str:
 
 # -- DB helpers ----------------------------------------------------------------
 
-def _ensure_profile_table(conn: sqlite3.Connection) -> None:
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS user_profiles (
-            user_id      TEXT PRIMARY KEY,
-            display_name TEXT DEFAULT '',
-            bio          TEXT DEFAULT '',
-            avatar_url   TEXT DEFAULT '',
-            skills       TEXT DEFAULT '[]',
-            goals        TEXT DEFAULT '',
-            phone        TEXT DEFAULT '',
-            linkedin     TEXT DEFAULT '',
-            joined_date  TEXT DEFAULT '',
-            updated_at   TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    conn.commit()
-
-
-def _get_progress_summary(user_id: str, conn: sqlite3.Connection) -> dict[str, Any]:
-    """Pull courses_done and avg_score from quiz_results if the table exists."""
+def _get_progress_summary(user_id: str) -> dict[str, Any]:
+    """Pull courses_done and avg_score from quiz_results."""
     try:
-        cur = conn.execute(
-            """
-            SELECT COUNT(*) as cnt, AVG(score) as avg_score
-            FROM quiz_results
-            WHERE user_id = ?
-            """,
-            (user_id,),
-        )
-        row = cur.fetchone()
-        if row:
+        pipeline = [
+            {"$match": {"user_id": user_id}},
+            {"$group": {
+                "_id": "$user_id",
+                "cnt": {"$sum": 1},
+                "avg": {"$avg": "$score"}
+            }}
+        ]
+        results = mongo_db.aggregate("quiz_results", pipeline)
+        if results:
+            row = results[0]
             return {
-                "courses_done": row[0] or 0,
-                "avg_score":    round(row[1] or 0, 1),
+                "courses_done": row.get("cnt", 0),
+                "avg_score": round(row.get("avg", 0) or 0, 1),
             }
-    except sqlite3.OperationalError:
+    except Exception:
         pass
     return {"courses_done": 0, "avg_score": 0.0}
 
@@ -135,50 +120,39 @@ def get_profile(
     if current_user.get("sub") != user_id and current_user.get("role") != "Admin":
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    conn = get_db()
-    try:
-        _ensure_profile_table(conn)
-        cur = conn.execute(
-            "SELECT * FROM user_profiles WHERE user_id = ?", (user_id,)
-        )
-        row = cur.fetchone()
-        progress = _get_progress_summary(user_id, conn)
+    progress = _get_progress_summary(user_id)
+    profile = mongo_db.find_one("user_profiles", {"user_id": user_id})
+    
+    # Also grab joined_date from employees table
+    emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": user_id}, {"id": user_id}]})
+    joined = emp.get("created_at") if emp else ""
 
-        # Also grab joined_date from employees table
-        emp_cur = conn.execute(
-            "SELECT created_at FROM employees WHERE id = ?", (user_id,)
-        )
-        emp_row = emp_cur.fetchone()
-        joined  = emp_row["created_at"] if emp_row and emp_row["created_at"] else ""
-
-        if row is None:
-            return {
-                "user_id":      user_id,
-                "display_name": "",
-                "bio":          "",
-                "avatar_url":   "",
-                "skills":       [],
-                "goals":        "",
-                "phone":        "",
-                "linkedin":     "",
-                "joined_date":  joined,
-                **progress,
-            }
-
+    if profile is None:
         return {
-            "user_id":      row["user_id"],
-            "display_name": row["display_name"],
-            "bio":          row["bio"],
-            "avatar_url":   row["avatar_url"],
-            "skills":       json.loads(row["skills"] or "[]"),
-            "goals":        row["goals"],
-            "phone":        row["phone"],
-            "linkedin":     row["linkedin"],
-            "joined_date":  row["joined_date"] or joined,
+            "user_id":      user_id,
+            "display_name": "",
+            "bio":          "",
+            "avatar_url":   "",
+            "skills":       [],
+            "goals":        "",
+            "phone":        "",
+            "linkedin":     "",
+            "joined_date":  joined,
             **progress,
         }
-    finally:
-        conn.close()
+
+    return {
+        "user_id":      profile.get("user_id"),
+        "display_name": profile.get("display_name", ""),
+        "bio":          profile.get("bio", ""),
+        "avatar_url":   profile.get("avatar_url", ""),
+        "skills":       profile.get("skills") if isinstance(profile.get("skills"), list) else json.loads(profile.get("skills") or "[]"),
+        "goals":        profile.get("goals", ""),
+        "phone":        profile.get("phone", ""),
+        "linkedin":     profile.get("linkedin", ""),
+        "joined_date":  profile.get("joined_date") or joined,
+        **progress,
+    }
 
 
 @router.post("/api/profile/{user_id}")
@@ -194,37 +168,21 @@ def save_profile(
     if len(body.avatar_url) > 2_500_000:
         raise HTTPException(status_code=413, detail="Avatar image too large (max 2 MB)")
 
-    conn = get_db()
-    try:
-        _ensure_profile_table(conn)
-        conn.execute(
-            """
-            INSERT INTO user_profiles
-                (user_id, bio, phone, linkedin, goals, skills, avatar_url, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            ON CONFLICT(user_id) DO UPDATE SET
-                bio        = excluded.bio,
-                phone      = excluded.phone,
-                linkedin   = excluded.linkedin,
-                goals      = excluded.goals,
-                skills     = excluded.skills,
-                avatar_url = excluded.avatar_url,
-                updated_at = datetime('now')
-            """,
-            (
-                user_id,
-                body.bio,
-                body.phone,
-                body.linkedin,
-                body.goals,
-                json.dumps(body.skills),
-                body.avatar_url,
-            ),
-        )
-        conn.commit()
-        return {"status": "ok"}
-    finally:
-        conn.close()
+    mongo_db.update_one(
+        "user_profiles",
+        {"user_id": user_id},
+        {"$set": {
+            "bio": body.bio,
+            "phone": body.phone,
+            "linkedin": body.linkedin,
+            "goals": body.goals,
+            "skills": body.skills,
+            "avatar_url": body.avatar_url,
+            "updated_at": mongo_db.now_iso()
+        }},
+        upsert=True
+    )
+    return {"status": "ok"}
 
 
 # -- Monitoring AI routes ------------------------------------------------------
@@ -279,21 +237,12 @@ If asked about unrelated topics, gently redirect to their growth journey.
 
 @router.post("/api/monitoring/chat")
 def monitoring_chat(body: ChatRequest) -> dict[str, str]:
-    conn = get_db()
-    try:
-        _ensure_profile_table(conn)
-        profile_cur = conn.execute(
-            "SELECT * FROM user_profiles WHERE user_id = ?", (body.user_id,)
-        )
-        profile_row = profile_cur.fetchone()
-        profile = dict(profile_row) if profile_row else None
-        if profile and profile.get("skills"):
-            profile["skills"] = json.loads(profile["skills"] or "[]")
-
-        progress = _get_progress_summary(body.user_id, conn)
-    finally:
-        conn.close()
-
+    # MongoDB Profile lookup
+    profile = mongo_db.find_one("user_profiles", {"user_id": body.user_id})
+    if profile and profile.get("skills"):
+        profile["skills"] = profile["skills"] if isinstance(profile["skills"], list) else json.loads(profile["skills"] or "[]")
+    
+    progress = _get_progress_summary(body.user_id)
     system = _build_system_prompt(body.name, body.role, body.department, profile, progress)
 
     # Build conversation context
@@ -310,20 +259,12 @@ def monitoring_chat(body: ChatRequest) -> dict[str, str]:
 
 @router.post("/api/monitoring/insights")
 def monitoring_insights(body: InsightsRequest) -> dict[str, Any]:
-    conn = get_db()
-    try:
-        _ensure_profile_table(conn)
-        profile_cur = conn.execute(
-            "SELECT * FROM user_profiles WHERE user_id = ?", (body.user_id,)
-        )
-        profile_row = profile_cur.fetchone()
-        profile = dict(profile_row) if profile_row else None
-        if profile and profile.get("skills"):
-            profile["skills"] = json.loads(profile["skills"] or "[]")
-
-        progress = _get_progress_summary(body.user_id, conn)
-    finally:
-        conn.close()
+    # MongoDB Profile lookup
+    profile = mongo_db.find_one("user_profiles", {"user_id": body.user_id})
+    if profile and profile.get("skills"):
+        profile["skills"] = profile["skills"] if isinstance(profile["skills"], list) else json.loads(profile["skills"] or "[]")
+    
+    progress = _get_progress_summary(body.user_id)
 
     goals   = profile.get("goals",  "None set") if profile else "None set"
     courses = progress.get("courses_done", 0)

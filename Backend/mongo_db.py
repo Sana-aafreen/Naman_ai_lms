@@ -112,7 +112,22 @@ def _create_indexes() -> None:
     db = _db
     
     try:
-        # Users collection indexes
+        # Employees (renamed from users for consistency with current code)
+        db["employees"].create_index("gsheet_uid", unique=True, sparse=True)
+        db["employees"].create_index("email", unique=True, sparse=True)
+        db["employees"].create_index("department")
+        
+        # Meetings and Calendar
+        db["meetings"].create_index("date")
+        db["meetings"].create_index("organizer_id")
+        db["meeting_attendees"].create_index([("meeting_id", ASCENDING), ("employee_id", ASCENDING)], unique=True)
+        db["leaves"].create_index("employee_id")
+        db["holidays"].create_index("date", unique=True)
+        
+        # KPI and Performance
+        db["kpi_ratings"].create_index([("employee_id", ASCENDING), ("month", ASCENDING)], unique=True)
+        
+        # Existing indexing logic...
         db["users"].create_index("user_id", unique=True, sparse=True)
         db["users"].create_index("email", unique=True, sparse=True)
         db["users"].create_index("department")
@@ -148,7 +163,7 @@ def _create_indexes() -> None:
         # User profiles indexes
         db["user_profiles"].create_index("user_id", unique=True, sparse=True)
         
-        print("  [Mongo] Indexes created")
+        print("  [Mongo] Indexes created for all collections")
     
     except Exception as e:
         safe_err = str(e).encode('ascii', 'ignore').decode('ascii')

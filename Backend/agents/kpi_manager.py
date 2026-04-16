@@ -19,15 +19,8 @@ Work targets carry forward month-to-month if not updated.
 from __future__ import annotations
 
 import json
-import sqlite3
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Optional
-
-# -- Paths ----------------------------------------------------------------------
-_AGENTS_DIR      = Path(__file__).resolve().parent
-CALENDAR_DB_PATH = _AGENTS_DIR / "calendar.db"
-GROWTH_DB_PATH   = _AGENTS_DIR / "growth_tracker.db"
+import mongo_db
+from bson import ObjectId
 
 # -- Scoring constants ----------------------------------------------------------
 WORKING_DAYS_PER_MONTH = 22     # approximation
@@ -53,16 +46,7 @@ LEVEL_SCORES = {
 #  DB HELPERS
 # ==============================================================================
 
-def _cal_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(CALENDAR_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def _growth_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(GROWTH_DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+# DB Helpers now use mongo_db directly...
 
 
 def _utc_now() -> str:
@@ -74,30 +58,8 @@ def _utc_now() -> str:
 # ==============================================================================
 
 def init_kpi_db() -> None:
-    conn = _cal_conn()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS kpi_ratings (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id TEXT    NOT NULL,
-            department  TEXT    NOT NULL,
-            month       TEXT    NOT NULL,       -- "YYYY-MM"
-            rated_by    TEXT    DEFAULT '',
-            work_target REAL    DEFAULT 100,
-            work_actual REAL    DEFAULT 0,
-            notes       TEXT    DEFAULT '',
-            updated_at  TEXT    DEFAULT (datetime('now'))
-        )
-    """)
-    # Unique constraint so upsert works cleanly
-    try:
-        conn.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_kpi_unique
-            ON kpi_ratings (employee_id, month)
-        """)
-    except Exception:
-        pass
-    conn.commit()
-    conn.close()
+    # Managed via mongo_db.init_mongodb()
+    pass
 
 
 # ==============================================================================
@@ -114,48 +76,37 @@ def set_work_rating(
     notes: str = "",
     rated_by: str = "",
 ) -> dict[str, Any]:
-    init_kpi_db()
-    conn = _cal_conn()
-    conn.execute("""
-        INSERT INTO kpi_ratings
-            (employee_id, department, month, rated_by, work_target, work_actual, notes, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(employee_id, month) DO UPDATE SET
-            department  = excluded.department,
-            rated_by    = excluded.rated_by,
-            work_target = excluded.work_target,
-            work_actual = excluded.work_actual,
-            notes       = excluded.notes,
-            updated_at  = excluded.updated_at
-    """, (employee_id, department, month, rated_by, work_target, work_actual, notes, _utc_now()))
-    conn.commit()
-    conn.close()
+    mongo_db.update_one(
+        "kpi_ratings",
+        {"employee_id": employee_id, "month": month},
+        {"$set": {
+            "department": department,
+            "month": month,
+            "rated_by": rated_by,
+            "work_target": work_target,
+            "work_actual": work_actual,
+            "notes": notes,
+            "updated_at": mongo_db.now_iso()
+        }},
+        upsert=True
+    )
     return {"success": True, "employee_id": employee_id, "month": month}
 
 
 def _get_work_rating(employee_id: str, month: str) -> Optional[dict[str, Any]]:
-    """
-    Returns the latest work rating for the given month.
-    If not found for this month, look for the most recent previous month (carry-forward).
-    """
-    init_kpi_db()
-    conn = _cal_conn()
     # Try exact month first
-    row = conn.execute(
-        "SELECT * FROM kpi_ratings WHERE employee_id=? AND month=?",
-        (employee_id, month),
-    ).fetchone()
-    if row:
-        conn.close()
-        return dict(row)
+    res = mongo_db.find_one("kpi_ratings", {"employee_id": employee_id, "month": month})
+    if res:
+        return res
 
     # Carry-forward: get the most recent rating before this month
-    row = conn.execute(
-        "SELECT * FROM kpi_ratings WHERE employee_id=? AND month < ? ORDER BY month DESC LIMIT 1",
-        (employee_id, month),
-    ).fetchone()
-    conn.close()
-    return dict(row) if row else None
+    res = mongo_db.find_many(
+        "kpi_ratings",
+        {"employee_id": employee_id, "month": {"$lt": month}},
+        sort=[("month", -1)],
+        limit=1
+    )
+    return res[0] if res else None
 
 
 # ==============================================================================
@@ -165,26 +116,21 @@ def _get_work_rating(employee_id: str, month: str) -> Optional[dict[str, Any]]:
 def _calc_learning_score(employee_id: str) -> tuple[float, int, float]:
     """Returns (learning_score, courses_done, avg_quiz_score)."""
     try:
-        conn = _growth_conn()
-        rows = conn.execute(
-            "SELECT score FROM employee_course_progress WHERE employee_id=? AND status='Completed'",
-            (employee_id,),
-        ).fetchall()
-        conn.close()
+        # Pull from quiz_results (was employee_course_progress in SQLite)
+        results = mongo_db.find_many("quiz_results", {"user_id": employee_id})
+        if not results:
+            return 0.0, 0, 0.0
+
+        scores = [float(r.get("score", 0)) for r in results]
+        courses_done = len(scores)
+        avg_quiz = round(sum(scores) / courses_done, 1)
+
+        # Scale: full credit needs 3 courses; partial if fewer
+        completion_factor = min(courses_done / 3, 1.0)
+        learning_score = round(avg_quiz * completion_factor, 1)
+        return learning_score, courses_done, avg_quiz
     except Exception:
         return 0.0, 0, 0.0
-
-    if not rows:
-        return 0.0, 0, 0.0
-
-    scores = [float(r["score"]) for r in rows]
-    courses_done = len(scores)
-    avg_quiz = round(sum(scores) / courses_done, 1)
-
-    # Scale: full credit needs 3 courses; partial if fewer
-    completion_factor = min(courses_done / 3, 1.0)
-    learning_score = round(avg_quiz * completion_factor, 1)
-    return learning_score, courses_done, avg_quiz
 
 
 def _calc_attendance_score(employee_id: str, month: str) -> tuple[float, int]:
@@ -192,31 +138,18 @@ def _calc_attendance_score(employee_id: str, month: str) -> tuple[float, int]:
     year_str, month_str = month.split("-")
     prefix = f"{year_str}-{month_str}"
     try:
-        conn = _cal_conn()
-        # Resolve SQLite numeric employee_id from gsheet_uid
-        emp_row = conn.execute(
-            "SELECT id FROM employees WHERE gsheet_uid=?", (employee_id,)
-        ).fetchone()
-        if not emp_row:
-            # Try direct numeric match
-            emp_row = conn.execute(
-                "SELECT id FROM employees WHERE CAST(id AS TEXT)=?", (employee_id,)
-            ).fetchone()
-        if not emp_row:
-            conn.close()
-            return 100.0, 0
-
-        db_id = emp_row["id"]
-        rows = conn.execute(
-            """
-            SELECT start_date, end_date FROM leaves
-            WHERE employee_id=? AND status='approved'
-              AND (start_date LIKE ? OR end_date LIKE ?
-                   OR (start_date <= ? AND end_date >= ?))
-            """,
-            (db_id, f"{prefix}%", f"{prefix}%", f"{prefix}-28", f"{prefix}-01"),
-        ).fetchall()
-        conn.close()
+        # In MongoDB, we use gsheet_uid for employee_id
+        # and leaves are stored in 'leaves' collection
+        query = {
+            "employee_id": employee_id,
+            "status": "approved",
+            "$or": [
+                {"start_date": {"$regex": f"^{prefix}"}},
+                {"end_date": {"$regex": f"^{prefix}"}},
+                {"$and": [{"start_date": {"$lte": f"{prefix}-28"}}, {"end_date": {"$gte": f"{prefix}-01"}}]}
+            ]
+        }
+        rows = mongo_db.find_many("leaves", query)
     except Exception:
         return 100.0, 0
 
@@ -308,20 +241,12 @@ def compute_employee_kpi(
     if not month:
         month = datetime.now(timezone.utc).strftime("%Y-%m")
 
-    # Fetch employee name from DB
+    # Fetch employee name from MongoDB
     emp_name = employee_id
     try:
-        conn = _cal_conn()
-        row = conn.execute(
-            "SELECT name FROM employees WHERE gsheet_uid=?", (employee_id,)
-        ).fetchone()
-        if not row:
-            row = conn.execute(
-                "SELECT name FROM employees WHERE CAST(id AS TEXT)=?", (employee_id,)
-            ).fetchone()
-        if row:
-            emp_name = row["name"]
-        conn.close()
+        emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": employee_id}, {"id": employee_id}]})
+        if emp:
+            emp_name = emp.get("name", employee_id)
     except Exception:
         pass
 
@@ -378,17 +303,10 @@ def get_department_kpi(department: str, month: Optional[str] = None) -> dict[str
     if not month:
         month = datetime.now(timezone.utc).strftime("%Y-%m")
 
-    init_kpi_db()
-    conn = _cal_conn()
-    rows = conn.execute(
-        """
-        SELECT id, name, gsheet_uid, role FROM employees
-        WHERE LOWER(COALESCE(department,'')) = LOWER(?)
-          AND LOWER(COALESCE(role,'')) = 'employee'
-        """,
-        (department,),
-    ).fetchall()
-    conn.close()
+    rows = mongo_db.find_many("employees", {
+        "department": {"$regex": f"(?i)^{department}$"},
+        "role": {"$regex": "(?i)^employee$"}
+    })
 
     employees_kpi = []
     for emp in rows:
@@ -420,14 +338,14 @@ def get_org_kpi(month: Optional[str] = None) -> dict[str, Any]:
     if not month:
         month = datetime.now(timezone.utc).strftime("%Y-%m")
 
-    init_kpi_db()
-    conn = _cal_conn()
-    dept_rows = conn.execute(
-        "SELECT DISTINCT COALESCE(department,'General') AS department FROM employees WHERE LOWER(role)='employee'"
-    ).fetchall()
-    conn.close()
+    # Get distinct departments using aggregation
+    pipeline = [
+        {"$match": {"role": {"$regex": "(?i)^employee$"}}},
+        {"$group": {"_id": "$department"}}
+    ]
+    dept_rows = mongo_db.aggregate("employees", pipeline)
+    departments = [r["_id"] for r in dept_rows if r.get("_id")]
 
-    departments = [r["department"] for r in dept_rows if r["department"]]
     dept_summaries = []
     for dept in departments:
         dept_data = get_department_kpi(dept, month)

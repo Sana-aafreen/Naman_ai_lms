@@ -25,12 +25,7 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))
 security = HTTPBearer(auto_error=False)
 
 
-def get_db(db_path: Path | None = None) -> sqlite3.Connection:
-    """Return a SQLite connection with row access by column name."""
-    resolved_path = Path(db_path or DB_PATH)
-    conn = sqlite3.connect(resolved_path)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Removed SQLite get_db...
 
 
 def normalize_role(raw_role: Any) -> str:
@@ -55,43 +50,47 @@ def decode_token(token: str) -> dict[str, Any]:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
 
+import mongo_db
+
+# ... (rest of imports)
+
 def authenticate_user(
     user_id: str,
     user_name: str,
     password: str,
     department: str = "",
-    db_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Validate employee credentials against the local employee table."""
+    """Validate employee credentials against the MongoDB employees collection."""
     uid = str(user_id).strip()
     name = str(user_name).strip().lower()
     pwd = str(password).strip()
     dept = str(department).strip()
 
-    conn = get_db(db_path)
-    try:
-        cursor = conn.cursor()
-        query = (
-            "SELECT * FROM employees "
-            "WHERE gsheet_uid=? AND LOWER(name)=? AND gsheet_password=?"
-        )
-        params: list[Any] = [uid, name, pwd]
-        if dept:
-            query += " AND department=?"
-            params.append(dept)
+    query = {
+        "gsheet_uid": uid,
+        "name": {"$regex": f"^{name}$", "$options": "i"},
+        "gsheet_password": pwd
+    }
+    if dept:
+        query["department"] = dept
 
-        cursor.execute(query, params)
-        row = cursor.fetchone()
-    finally:
-        conn.close()
-
-    if not row:
+    user = mongo_db.find_one("employees", query)
+    
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    employee = dict(row)
-    employee.pop("gsheet_password", None)
-    employee["role"] = normalize_role(employee.get("role"))
-    return employee
+    # Convert MongoDB _id to string or remove it
+    if "_id" in user:
+        user["id"] = str(user["_id"])
+        del user["_id"]
+    
+    # Also handle the gsheet_uid vs id inconsistency if necessary
+    if "gsheet_uid" in user and "id" not in user:
+        user["id"] = user["gsheet_uid"]
+
+    user.pop("gsheet_password", None)
+    user["role"] = normalize_role(user.get("role"))
+    return user
 
 
 def authenticate_and_issue_token(
@@ -99,9 +98,8 @@ def authenticate_and_issue_token(
     user_name: str,
     password: str,
     department: str = "",
-    db_path: Path | None = None,
 ) -> dict[str, Any]:
-    employee = authenticate_user(user_id, user_name, password, department, db_path)
+    employee = authenticate_user(user_id, user_name, password, department)
     token = create_access_token(
         {
             "sub": str(employee["id"]),

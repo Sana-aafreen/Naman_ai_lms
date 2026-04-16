@@ -348,63 +348,16 @@ def gcal_list_events(year: int, month: int) -> list:
 # ════════════════════════════════════════════════════════════
 #  DATABASE
 # ════════════════════════════════════════════════════════════
+import mongo_db
+from bson.objectid import ObjectId
+
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return mongo_db.get_db()
 
 def init_db():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS employees (
-        id              INTEGER PRIMARY KEY AUTOINCREMENT,
-        name            TEXT NOT NULL,
-        email           TEXT UNIQUE NOT NULL,
-        department      TEXT,
-        role            TEXT DEFAULT 'employee',
-        avatar_color    TEXT DEFAULT '#6366f1',
-        gsheet_uid      TEXT,
-        gsheet_password TEXT
-    )""")
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS meetings (
-        id             INTEGER PRIMARY KEY AUTOINCREMENT,
-        title          TEXT NOT NULL,
-        description    TEXT,
-        date           TEXT NOT NULL,
-        start_time     TEXT NOT NULL,
-        end_time       TEXT NOT NULL,
-        organizer_id   INTEGER NOT NULL,
-        location       TEXT DEFAULT 'Online',
-        meeting_link   TEXT,
-        gcal_event_id  TEXT,               -- Google Calendar event ID
-        created_at     TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (organizer_id) REFERENCES employees(id)
-    )""")
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS meeting_attendees (
-        meeting_id   INTEGER NOT NULL,
-        employee_id  INTEGER NOT NULL,
-        rsvp         TEXT DEFAULT 'pending',
-        PRIMARY KEY (meeting_id, employee_id),
-        FOREIGN KEY (meeting_id)  REFERENCES meetings(id),
-        FOREIGN KEY (employee_id) REFERENCES employees(id)
-    )""")
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS leaves (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee_id  INTEGER NOT NULL,
-        start_date   TEXT NOT NULL,
-        end_date     TEXT NOT NULL,
-        leave_type   TEXT DEFAULT 'casual',
-        reason       TEXT,
-        status       TEXT DEFAULT 'pending',
-        applied_at   TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (employee_id) REFERENCES employees(id)
-    )""")
-    conn.commit()
-    conn.close()
+    # MongoDB initialization is handled in mongo_db.py
+    return mongo_db.init_mongodb()
+    pass
 
 # ════════════════════════════════════════════════════════════
 #  PYDANTIC MODELS
@@ -640,24 +593,21 @@ def _get_current_user(authorization: Optional[str]) -> dict:
     return _decode_auth_token(token)
 
 
-def _update_leave_status_record(lid: int, status: str, approved_by: str = "", comments: str = ""):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("""
-        SELECT l.*, e.name, e.email FROM leaves l
-        JOIN employees e ON l.employee_id = e.id WHERE l.id=?
-    """, (lid,))
-    row = c.fetchone()
-    if not row:
-        conn.close()
+def _update_leave_status_record(lid: str, status: str, approved_by: str = "", comments: str = ""):
+    leave = mongo_db.find_one("leaves", {"_id": ObjectId(lid)})
+    if not leave:
         raise HTTPException(404, "Leave not found")
 
-    leave = dict(row)
-    c.execute("UPDATE leaves SET status=? WHERE id=?", (status, lid))
-    conn.commit()
-    conn.close()
+    mongo_db.update_one("leaves", {"_id": ObjectId(lid)}, {"$set": {"status": status}})
+    
+    emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": leave.get("employee_id")}, {"id": leave.get("employee_id")}]})
+    if not emp:
+        try: emp = mongo_db.find_one("employees", {"_id": ObjectId(leave.get("employee_id"))})
+        except: pass
 
-    notify_leave_status(leave["email"], leave["name"], leave, status)
+    if emp:
+        notify_leave_status(emp["email"], emp["name"], leave, status)
+        
     return {
         "success": True,
         "message": f"Leave {status}",
@@ -666,22 +616,24 @@ def _update_leave_status_record(lid: int, status: str, approved_by: str = "", co
     }
 
 
-def _resolve_employee_db_id(employee_ref: int | str) -> int:
-    if isinstance(employee_ref, int):
-        return employee_ref
-
+def _resolve_employee_db_id(employee_ref: int | str) -> str:
     ref = str(employee_ref).strip()
-    if ref.isdigit():
-        return int(ref)
-
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT id FROM employees WHERE gsheet_uid=?", (ref,))
-    row = c.fetchone()
-    conn.close()
-    if not row:
+    
+    # In MongoDB, we use gsheet_uid or the string _id
+    query = {"$or": [{"gsheet_uid": ref}, {"id": ref}]}
+    user = mongo_db.find_one("employees", query)
+    
+    if not user:
+        # Fallback to checking by ID if it's already a Mongo ID
+        try:
+            user = mongo_db.find_one("employees", {"_id": ObjectId(ref)})
+        except:
+            user = None
+            
+    if not user:
         raise HTTPException(404, "Employee not found")
-    return int(row["id"])
+        
+    return str(user.get("gsheet_uid") or user.get("_id"))
 
 
 def _get_holidays_for_month(year: int, month: int) -> list:
@@ -708,27 +660,42 @@ def _get_calendar_events(year: int, month: int, current_user: Optional[dict] = N
         except HTTPException:
             resolved_employee_id = None
 
-    # ── Meetings from SQLite (mirrored from GCal) ───────────
-    c.execute("""
-        SELECT m.*, e.name AS organizer_name, e.avatar_color
-        FROM meetings m JOIN employees e ON m.organizer_id = e.id
-        WHERE m.date LIKE ?
-        ORDER BY m.date, m.start_time
-    """, (f"{prefix}%",))
-    meetings = [dict(r) for r in c.fetchall()]
-    for m in meetings:
-        c.execute("""
-            SELECT e.id, e.name, e.email, ma.rsvp
-            FROM meeting_attendees ma JOIN employees e ON ma.employee_id = e.id
-            WHERE ma.meeting_id = ?
-        """, (m["id"],))
-        m["attendees"] = [dict(r) for r in c.fetchall()]
-    if resolved_role == "Employee" and resolved_employee_id is not None:
-        meetings = [
-            meeting for meeting in meetings
-            if meeting.get("organizer_id") == resolved_employee_id
-            or any(attendee.get("id") == resolved_employee_id for attendee in meeting.get("attendees", []))
-        ]
+    # ── Meetings from MongoDB ───────────
+    meetings_data = mongo_db.find_many("meetings", {"date": {"$regex": f"^{prefix}"}})
+    meetings = []
+    for m in meetings_data:
+        m["id"] = str(m.get("_id"))
+        # Get organizer details
+        org = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": m.get("organizer_id")}, {"id": m.get("organizer_id")}]})
+        if not org:
+            try: org = mongo_db.find_one("employees", {"_id": ObjectId(m.get("organizer_id"))})
+            except: pass
+            
+        m["organizer_name"] = org.get("name") if org else "Unknown"
+        m["avatar_color"] = org.get("avatar_color") if org else "#6366f1"
+        
+        # Get attendees
+        attendees_data = mongo_db.find_many("meeting_attendees", {"meeting_id": m["id"]})
+        m["attendees"] = []
+        for att in attendees_data:
+            emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": att.get("employee_id")}, {"id": att.get("employee_id")}]})
+            if not emp:
+                try: emp = mongo_db.find_one("employees", {"_id": ObjectId(att.get("employee_id"))})
+                except: pass
+            if emp:
+                m["attendees"].append({
+                    "id": str(emp.get("gsheet_uid") or emp.get("_id")),
+                    "name": emp.get("name"),
+                    "email": emp.get("email"),
+                    "rsvp": att.get("rsvp", "pending")
+                })
+        
+        # Filter for Employee role
+        if resolved_role == "Employee" and resolved_employee_id:
+            if m.get("organizer_id") == resolved_employee_id or any(a["id"] == resolved_employee_id for a in m["attendees"]):
+                meetings.append(m)
+        else:
+            meetings.append(m)
 
     # ── Merge live GCal events not yet in SQLite ────────────
     gcal_events = gcal_list_events(year, month)
@@ -757,23 +724,32 @@ def _get_calendar_events(year: int, month: int, current_user: Optional[dict] = N
                 "source":         "gcal",
             })
 
-    # ── Leaves from SQLite ───────────────────────────────────
-    leave_query = """
-        SELECT l.*, e.name AS employee_name, e.avatar_color, e.department
-        FROM leaves l JOIN employees e ON l.employee_id = e.id
-        WHERE l.status != 'rejected'
-          AND (l.start_date LIKE ? OR l.end_date LIKE ?
-               OR (l.start_date <= ? AND l.end_date >= ?))
-    """
-    leave_params = [f"{prefix}%", f"{prefix}%", f"{prefix}-31", f"{prefix}-01"]
-    if resolved_role == "Employee" and resolved_employee_id is not None:
-        leave_query += " AND l.employee_id=?"
-        leave_params.append(resolved_employee_id)
-    leave_query += " ORDER BY l.start_date"
-    c.execute(leave_query, tuple(leave_params))
-    leaves = [dict(r) for r in c.fetchall()]
-
-    conn.close()
+    # ── Leaves from MongoDB ───────────────────────────────────
+    leave_filters = {
+        "status": {"$ne": "rejected"},
+        "$or": [
+            {"start_date": {"$regex": f"^{prefix}"}},
+            {"end_date": {"$regex": f"^{prefix}"}},
+            {"$and": [{"start_date": {"$lte": f"{prefix}-31"}}, {"end_date": {"$gte": f"{prefix}-01"}}]}
+        ]
+    }
+    if resolved_role == "Employee" and resolved_employee_id:
+        leave_filters["employee_id"] = resolved_employee_id
+        
+    leaves_data = mongo_db.find_many("leaves", leave_filters, sort=[("start_date", 1)])
+    leaves = []
+    for l in leaves_data:
+        l["id"] = str(l.get("_id"))
+        emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": l.get("employee_id")}, {"id": l.get("employee_id")}]})
+        if not emp:
+            try: emp = mongo_db.find_one("employees", {"_id": ObjectId(l.get("employee_id"))})
+            except: pass
+            
+        if emp:
+            l["employee_name"] = emp.get("name")
+            l["avatar_color"] = emp.get("avatar_color")
+            l["department"] = emp.get("department")
+            leaves.append(l)
     return {
         "holidays": _get_holidays_for_month(year, month),
         "meetings": meetings,
@@ -781,30 +757,35 @@ def _get_calendar_events(year: int, month: int, current_user: Optional[dict] = N
     }
 
 def _schedule_meeting(title: str, date: str, start_time: str, end_time: str,
-                      organizer_id: int, attendee_ids: list = [],
+                      organizer_id: str, attendee_ids: list = [],
                       description: str = "", location: str = "Online",
                       meeting_link: str = "") -> dict:
-    conn = get_db()
-    c = conn.cursor()
-
     all_ids = list(set(attendee_ids))
     if organizer_id not in all_ids:
         all_ids.append(organizer_id)
 
     # Gather attendee emails for Google Calendar
-    c.execute("SELECT name, email FROM employees WHERE id=?", (organizer_id,))
-    org_row = c.fetchone()
-    if not org_row:
-        conn.close()
+    org = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": organizer_id}, {"id": organizer_id}]})
+    if not org:
+        # Try finding by ObjectId in case it's a mongo ID
+        try:
+            org = mongo_db.find_one("employees", {"_id": ObjectId(organizer_id)})
+        except:
+            org = None
+            
+    if not org:
         return {"success": False, "message": "Organizer not found."}
-    org = dict(org_row)
 
     attendee_emails = []
     for eid in all_ids:
-        c.execute("SELECT email FROM employees WHERE id=?", (eid,))
-        row = c.fetchone()
-        if row:
-            attendee_emails.append(row["email"])
+        emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": eid}, {"id": eid}]})
+        if not emp:
+            try:
+                emp = mongo_db.find_one("employees", {"_id": ObjectId(eid)})
+            except:
+                continue
+        if emp:
+            attendee_emails.append(emp["email"])
 
     # ── Push to Google Calendar ──────────────────────────────
     gcal_event_id = gcal_create_event(
@@ -815,34 +796,38 @@ def _schedule_meeting(title: str, date: str, start_time: str, end_time: str,
         attendee_emails=attendee_emails,
     )
 
-    # ── Mirror in SQLite ─────────────────────────────────────
-    c.execute("""
-        INSERT INTO meetings
-            (title, description, date, start_time, end_time,
-             organizer_id, location, meeting_link, gcal_event_id)
-        VALUES (?,?,?,?,?,?,?,?,?)
-    """, (title, description, date, start_time, end_time,
-          organizer_id, location, meeting_link or "", gcal_event_id or ""))
-    mid = c.lastrowid
+    # ── Mirror in MongoDB ─────────────────────────────────────
+    meeting_doc = {
+        "title": title,
+        "description": description,
+        "date": date,
+        "start_time": start_time,
+        "end_time": end_time,
+        "organizer_id": organizer_id,
+        "location": location,
+        "meeting_link": meeting_link or "",
+        "gcal_event_id": gcal_event_id or "",
+        "created_at": mongo_db.now_iso()
+    }
+    mid = mongo_db.insert_one("meetings", meeting_doc)
 
+    # Attendees
     for eid in all_ids:
         if eid != organizer_id:
-            c.execute(
-                "INSERT OR IGNORE INTO meeting_attendees (meeting_id, employee_id) VALUES (?,?)",
-                (mid, eid))
+            mongo_db.update_one(
+                "meeting_attendees",
+                {"meeting_id": mid, "employee_id": eid},
+                {"$set": {"rsvp": "pending"}},
+                upsert=True
+            )
 
-    conn.commit()
-
-    # ── Console notifications (no SMTP) ─────────────────────
+    # ── Console notifications ─────────────────────
     meeting_info = {"title": title, "date": date,
                     "start_time": start_time, "end_time": end_time}
     for eid in all_ids:
-        c.execute("SELECT name, email FROM employees WHERE id=?", (eid,))
-        emp = c.fetchone()
+        emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": eid}, {"id": eid}]})
         if emp:
             notify_meeting_invite(emp["email"], meeting_info, org["name"])
-
-    conn.close()
 
     gcal_note = f" | GCal ID: {gcal_event_id}" if gcal_event_id else " (GCal unavailable — stored locally)"
     return {
@@ -865,18 +850,22 @@ def _apply_leave(employee_id: int, start_date: str, end_date: str,
         conn.close()
         return {"success": False, "message": "Conflict: overlapping leave already exists."}
 
-    c.execute("""
-        INSERT INTO leaves (employee_id, start_date, end_date, leave_type, reason)
-        VALUES (?,?,?,?,?)
-    """, (employee_id, start_date, end_date, leave_type, reason))
-    lid = c.lastrowid
+    leave_doc = {
+        "employee_id": employee_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "leave_type": leave_type,
+        "reason": reason,
+        "status": "pending",
+        "applied_at": mongo_db.now_iso()
+    }
+    lid = mongo_db.insert_one("leaves", leave_doc)
 
-    c.execute("SELECT name, email FROM employees WHERE id=?", (employee_id,))
-    emp = dict(c.fetchone())
-
-    c.execute("SELECT email FROM employees WHERE role='manager' AND id != ?", (employee_id,))
-    managers = c.fetchall()
-    conn.commit()
+    emp = mongo_db.find_one("employees", {"gsheet_uid": employee_id})
+    if not emp:
+        emp = mongo_db.find_one("employees", {"id": employee_id})
+    
+    managers = mongo_db.find_many("employees", {"role": "Manager", "gsheet_uid": {"$ne": employee_id}})
 
     leave_data = {"start_date": start_date, "end_date": end_date,
                   "leave_type": leave_type, "reason": reason}
@@ -1257,17 +1246,13 @@ async def create_meeting(req: MeetingRequest, authorization: Optional[str] = Hea
     return r
 
 @router.delete("/api/meetings/{mid}")
-async def delete_meeting(mid: int):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT gcal_event_id FROM meetings WHERE id=?", (mid,))
-    row = c.fetchone()
-    if row and row["gcal_event_id"]:
-        gcal_delete_event(row["gcal_event_id"])
-    c.execute("DELETE FROM meeting_attendees WHERE meeting_id=?", (mid,))
-    c.execute("DELETE FROM meetings WHERE id=?", (mid,))
-    conn.commit()
-    conn.close()
+async def delete_meeting(mid: str):
+    meeting = mongo_db.find_one("meetings", {"_id": ObjectId(mid)})
+    if meeting and meeting.get("gcal_event_id"):
+        gcal_delete_event(meeting["gcal_event_id"])
+    
+    mongo_db.delete_many("meeting_attendees", {"meeting_id": mid})
+    mongo_db.delete_one("meetings", {"_id": ObjectId(mid)})
     return {"success": True}
 
 # ── Leaves ───────────────────────────────────────────────────
@@ -1280,40 +1265,44 @@ async def get_leaves(
     authorization: Optional[str] = Header(default=None),
 ):
     current_user = _get_current_user(authorization)
-    conn = get_db()
-    c = conn.cursor()
     resolved_employee_id = employee_id or userId
     requested_role = _normalize_role(role)
     resolved_role = current_user.get("role", requested_role)
 
+    filters = {}
     if resolved_role == "Employee":
         resolved_employee_id = _resolve_employee_db_id(current_user["sub"])
-        c.execute("""
-            SELECT l.*, e.name AS employee_name, e.department, e.avatar_color
-            FROM leaves l JOIN employees e ON l.employee_id = e.id
-            WHERE l.employee_id=? ORDER BY l.applied_at DESC
-        """, (resolved_employee_id,))
+        filters["employee_id"] = resolved_employee_id
     elif resolved_role == "Manager":
         resolved_department = current_user.get("department") or department or ""
-        c.execute("""
-            SELECT l.*, e.name AS employee_name, e.department, e.avatar_color
-            FROM leaves l JOIN employees e ON l.employee_id = e.id
-            WHERE e.department=? ORDER BY l.applied_at DESC
-        """, (resolved_department,))
-    elif resolved_employee_id and not role and requested_role == "Employee":
-        c.execute("""
-            SELECT l.*, e.name AS employee_name, e.department, e.avatar_color
-            FROM leaves l JOIN employees e ON l.employee_id = e.id
-            WHERE l.employee_id=? ORDER BY l.applied_at DESC
-        """, (resolved_employee_id,))
-    else:
-        c.execute("""
-            SELECT l.*, e.name AS employee_name, e.department, e.avatar_color
-            FROM leaves l JOIN employees e ON l.employee_id = e.id
-            ORDER BY l.applied_at DESC
-        """)
-    result = [dict(r) for r in c.fetchall()]
-    conn.close()
+        # Filter handled after lookup
+    elif resolved_employee_id:
+        try:
+            resolved_employee_id = _resolve_employee_db_id(resolved_employee_id)
+            filters["employee_id"] = resolved_employee_id
+        except:
+            pass
+
+    leaves_data = mongo_db.find_many("leaves", filters, sort=[("applied_at", -1)])
+    result = []
+    
+    for l in leaves_data:
+        l["id"] = str(l.get("_id"))
+        emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": l.get("employee_id")}, {"id": l.get("employee_id")}]})
+        if not emp:
+            try: emp = mongo_db.find_one("employees", {"_id": ObjectId(l.get("employee_id"))})
+            except: pass
+            
+        if emp:
+            # Manager department filter
+            if resolved_role == "Manager" and emp.get("department") != (current_user.get("department") or department):
+                continue
+            
+            l["employee_name"] = emp.get("name")
+            l["department"] = emp.get("department")
+            l["avatar_color"] = emp.get("avatar_color")
+            result.append(l)
+            
     return result
 
 @router.post("/api/leaves")
@@ -1331,7 +1320,7 @@ async def apply_leave(req: LeaveRequest, authorization: Optional[str] = Header(d
 
 
 @router.patch("/api/leaves/{lid}")
-async def patch_leave(lid: int, body: dict, authorization: Optional[str] = Header(default=None)):
+async def patch_leave(lid: str, body: dict, authorization: Optional[str] = Header(default=None)):
     current_user = _get_current_user(authorization)
     if current_user.get("role") not in {"Manager", "Admin"}:
         raise HTTPException(403, "Only managers and admins can update leave status")
@@ -1339,20 +1328,22 @@ async def patch_leave(lid: int, body: dict, authorization: Optional[str] = Heade
     status = "approved" if action == "approve" else "rejected" if action == "reject" else ""
     if not status:
         raise HTTPException(400, "Action must be 'approve' or 'reject'")
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("""
-        SELECT l.employee_id, e.department
-        FROM leaves l
-        JOIN employees e ON l.employee_id = e.id
-        WHERE l.id=?
-    """, (lid,))
-    row = c.fetchone()
-    conn.close()
-    if not row:
+        
+    leave = mongo_db.find_one("leaves", {"_id": ObjectId(lid)})
+    if not leave:
         raise HTTPException(404, "Leave not found")
-    if current_user.get("role") == "Manager" and row["department"] != current_user.get("department"):
+        
+    emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": leave.get("employee_id")}, {"id": leave.get("employee_id")}]})
+    if not emp:
+        try: emp = mongo_db.find_one("employees", {"_id": ObjectId(leave.get("employee_id"))})
+        except: pass
+        
+    if not emp:
+         raise HTTPException(404, "Employee for leave not found")
+
+    if current_user.get("role") == "Manager" and emp.get("department") != current_user.get("department"):
         raise HTTPException(403, "Managers can only approve leaves in their department")
+        
     return _update_leave_status_record(
         lid,
         status,
@@ -1366,12 +1357,8 @@ async def update_leave(lid: int, req: LeaveStatusUpdate):
     return _update_leave_status_record(lid, req.status)
 
 @router.delete("/api/leaves/{lid}")
-async def delete_leave(lid: int):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("DELETE FROM leaves WHERE id=?", (lid,))
-    conn.commit()
-    conn.close()
+async def delete_leave(lid: str):
+    mongo_db.delete_one("leaves", {"_id": ObjectId(lid)})
     return {"success": True}
 
 # ── Gemini Agent ─────────────────────────────────────────────
@@ -2128,54 +2115,30 @@ def _gemini_fallback(prompt: str, system: str = "") -> str:
 
 # ── Profile DB helpers ────────────────────────────────────────────────────────
 
-def _profile_db_path() -> Path:
-    """Reuse the same SQLite DB."""
-    return Path(DB_PATH)
-
-
-def _get_profile_conn():
-    import sqlite3
-    conn = sqlite3.connect(_profile_db_path())
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def _ensure_profile_table() -> None:
-    conn = _get_profile_conn()
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS user_profiles (
-                user_id      TEXT PRIMARY KEY,
-                bio          TEXT    DEFAULT '',
-                avatar_url   TEXT    DEFAULT '',
-                skills       TEXT    DEFAULT '[]',
-                goals        TEXT    DEFAULT '',
-                phone        TEXT    DEFAULT '',
-                linkedin     TEXT    DEFAULT '',
-                updated_at   TEXT    DEFAULT (datetime('now'))
-            )
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+# Profile helpers now use mongo_db directly...
 
 
 def _get_progress_summary(user_id: str) -> dict:
-    conn = _get_profile_conn()
     try:
-        cur = conn.execute(
-            "SELECT COUNT(*) as cnt, AVG(score) as avg FROM quiz_results WHERE user_id = ?",
-            (user_id,),
-        )
-        row = cur.fetchone()
-        return {
-            "courses_done": row["cnt"] if row else 0,
-            "avg_score":    round(row["avg"] or 0, 1) if row else 0.0,
-        }
-    except Exception:  # noqa: BLE001  table may not exist yet
+        # Aggregation for count and average score
+        pipeline = [
+            {"$match": {"user_id": user_id}},
+            {"$group": {
+                "_id": "$user_id",
+                "cnt": {"$sum": 1},
+                "avg": {"$avg": "$score"}
+            }}
+        ]
+        results = mongo_db.aggregate("quiz_results", pipeline)
+        if results:
+            row = results[0]
+            return {
+                "courses_done": row.get("cnt", 0),
+                "avg_score": round(row.get("avg", 0) or 0, 1),
+            }
         return {"courses_done": 0, "avg_score": 0.0}
-    finally:
-        conn.close()
+    except Exception:
+        return {"courses_done": 0, "avg_score": 0.0}
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
@@ -2810,25 +2773,10 @@ def _build_monitoring_system_prompt(
 async def monitoring_chat(req: MonitoringChatRequest, authorization: Optional[str] = Header(default=None)):
     _get_current_user(authorization)
 
-    try:
-        _ensure_profile_table()
-    except Exception:
-        pass
-
-    profile = None
-    try:
-        conn = _get_profile_conn()
-        try:
-            row = conn.execute(
-                "SELECT * FROM user_profiles WHERE user_id = ?", (req.user_id,)
-            ).fetchone()
-            if row:
-                profile = dict(row)
-                profile["skills"] = json.loads(profile.get("skills") or "[]")
-        finally:
-            conn.close()
-    except Exception:
-        pass
+    # MongoDB Profile lookup
+    profile = mongo_db.find_one("user_profiles", {"user_id": req.user_id})
+    if profile:
+        profile["skills"] = profile.get("skills") if isinstance(profile.get("skills"), list) else json.loads(profile.get("skills") or "[]")
 
     from datetime import datetime
     now = datetime.now()
@@ -2851,25 +2799,10 @@ async def monitoring_chat(req: MonitoringChatRequest, authorization: Optional[st
 async def monitoring_insights(req: MonitoringInsightsRequest, authorization: Optional[str] = Header(default=None)):
     _get_current_user(authorization)
 
-    try:
-        _ensure_profile_table()
-    except Exception:
-        pass
-
-    profile = None
-    try:
-        conn = _get_profile_conn()
-        try:
-            row = conn.execute(
-                "SELECT * FROM user_profiles WHERE user_id = ?", (req.user_id,)
-            ).fetchone()
-            if row:
-                profile = dict(row)
-                profile["skills"] = json.loads(profile.get("skills") or "[]")
-        finally:
-            conn.close()
-    except Exception:
-        pass
+    # MongoDB Profile lookup
+    profile = mongo_db.find_one("user_profiles", {"user_id": req.user_id})
+    if profile:
+        profile["skills"] = profile.get("skills") if isinstance(profile.get("skills"), list) else json.loads(profile.get("skills") or "[]")
 
     progress = _get_progress_summary(req.user_id)
     goals    = (profile or {}).get("goals", "None set")

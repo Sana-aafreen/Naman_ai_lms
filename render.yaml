@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: namandarshan-backend
+    env: python
+    buildCommand: "pip install -r Backend/requirements.txt"
+    startCommand: "cd Backend && gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: MONGODB_URL
+        sync: false
+      - key: MONGODB_DB
+        value: naman_lms
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CALENDAR_GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_SHEETS_API
+        sync: false
+      - key: JWT_SECRET
+        sync: false
