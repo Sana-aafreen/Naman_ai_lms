@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI):
     init_kpi_db()
     
     # Run heavy sync in background to avoid blocking port binding
-    async def run_sync():
+    def run_sync_blocking():
         print("  [Background] Syncing employees from Google Sheet...")
         try:
             sync_employees_from_gsheet()
@@ -169,7 +169,9 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"  [Background] Sync failed: {e}")
 
-    asyncio.create_task(run_sync())
+    # Use run_in_executor to avoid blocking the async event loop
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, run_sync_blocking)
     
     print("  http://localhost:8000 (Binding complete)\n")
     yield
