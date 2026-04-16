@@ -212,7 +212,11 @@ app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
 # This ensures that preflight (OPTIONS) requests are never rejected with 405.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://naman-ai-lms.vercel.app",
+        "*"
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -224,10 +228,19 @@ app.add_middleware(
 async def global_exception_handler(request: Request, exc: Exception):
     print(f"\n[ERROR] Unhandled Exception at {request.url}")
     print(traceback.format_exc())
-    return JSONResponse(
+    
+    response = JSONResponse(
         status_code=500,
         content={"detail": "Internal Server Error. Check server logs for details."},
     )
+    
+    # Manually add CORS headers to the error response to avoid "CORS block" in browser
+    # instead of the actual error detail.
+    response.headers["Access-Control-Allow-Origin"] = "https://naman-ai-lms.vercel.app"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
 
 app.include_router(calendar_router)
 app.include_router(whats_new_router)
@@ -861,7 +874,6 @@ async def kpi_me(authorization: Optional[str] = Header(default=None)):
     current_user = _get_current_user(authorization)
     employee_id  = str(current_user.get("sub", current_user.get("id", "")))
     department   = current_user.get("department", "")
-    month        = Query(None)  # type: ignore  handled below
     return compute_employee_kpi(employee_id, department)
 
 
