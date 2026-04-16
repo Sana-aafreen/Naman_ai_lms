@@ -195,7 +195,23 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# CORS Configuration - Explicitly allow Vercel and local development
+ALLOWED_ORIGINS = [
+    "https://naman-ai-lms.vercel.app",
+    "https://naman-ai-lms.onrender.com",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "*", # Keep * as fallback for browser health checks, but explicit origins take priority
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(calendar_router)
 app.include_router(whats_new_router)
@@ -284,9 +300,12 @@ class AIChatRequest(BaseModel):
     employeeName: Optional[str] = None
 
 
+from pydantic import Field, AliasChoices
+
 class LoginRequest(BaseModel):
-    userId: str
-    userName: str
+    # Support both snake_case (Vercel) and camelCase (Original)
+    userId: str = Field(validation_alias=AliasChoices("userId", "user_id"))
+    userName: str = Field(validation_alias=AliasChoices("userName", "user_name"))
     password: str
     department: str
 
@@ -336,6 +355,7 @@ async def ai_chat(req: AIChatRequest):
 
 
 @app.post("/api/login")
+@app.post("/api/authenticate")
 async def login_alias(req: LoginRequest):
     try:
         result = authenticate_and_issue_token(req.userId, req.userName, req.password, req.department)
