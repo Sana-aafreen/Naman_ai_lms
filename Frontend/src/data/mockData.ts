@@ -51,30 +51,24 @@ export const SOPS: Record<string, { title: string; steps: string[] }[]> = {
 
 export const SOP_PDFS: Record<
   string,
-  { title: string; fileName: string; href: string; meta: string }[]
+  { title: string; href: string }[]
 > = {
   HR: [
     {
       title: "HR SOP Handbook",
-      fileName: "hr-sop.pdf",
-      href: "/sops/hr-sop.pdf",
-      meta: "PDF · HR",
+      href: "/SOPs/hr-sop.pdf",
     },
   ],
   Marketing: [
     {
       title: "Marketing SOP Handbook",
-      fileName: "marketing-sop.pdf",
-      href: "/sops/marketing-sop.pdf",
-      meta: "PDF · Marketing",
+      href: "/SOPs/marketing-sop.pdf",
     },
   ],
   Operations: [
     {
       title: "Operations SOP Handbook",
-      fileName: "operations-sop.pdf",
-      href: "/sops/operations-sop.pdf",
-      meta: "PDF · Operations",
+      href: "/SOPs/operations-sop.pdf",
     },
   ],
 };

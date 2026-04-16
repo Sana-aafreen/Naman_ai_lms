@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance Department Training Course — NamanDarshan LMS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --saffron:      #F97316;
+  --saffron-dark: #C2410C;
+  --saffron-lite: #FFF7ED;
+  --saffron-mid:  #FDBA74;
+  --cream:        #FFFBF5;
+  --warm-dark:    #1C1917;
+  --warm-mid:     #44403C;
+  --warm-gray:    #78716C;
+  --warm-light:   #F5F0E8;
+  --border:       #E7DDD0;
+  --white:        #FFFFFF;
+  --green:        #16A34A;
+  --green-lite:   #DCFCE7;
+  --red:          #DC2626;
+  --red-lite:     #FEE2E2;
+  --blue:         #2563EB;
+  --blue-lite:    #EFF6FF;
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:    0 4px 16px rgba(0,0,0,.10);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,.14);
+  --radius:       14px;
+  --radius-sm:    8px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--cream);
+  color: var(--warm-dark);
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+h1,h2,h3,h4,h5 {
+  font-family: 'Yeseva One', serif;
+  line-height: 1.25;
+  color: var(--warm-dark);
+}
+
+a { color: var(--saffron); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+p { margin-bottom: 1rem; }
+p:last-child { margin-bottom: 0; }
+
+ul, ol { padding-left: 1.4rem; }
+li { margin-bottom: .4rem; }
+
+/* ── NAVBAR ── */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem;
+  height: 64px;
+}
+.navbar-brand {
+  display: flex; align-items: center; gap: .75rem;
+}
+.navbar-logo {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-family: 'Yeseva One', serif; font-size: 18px;
+}
+.navbar-title {
+  font-family: 'Yeseva One', serif;
+  font-size: 1.15rem; color: var(--warm-dark);
+}
+.navbar-title span { color: var(--saffron); }
+.navbar-links { display: flex; align-items: center; gap: 1.5rem; }
+.navbar-links a {
+  font-size: .875rem; font-weight: 700;
+  color: var(--warm-gray);
+  padding: .4rem .6rem; border-radius: 6px;
+  transition: all .15s;
+}
+.navbar-links a:hover, .navbar-links a.active {
+  color: var(--saffron); background: var(--saffron-lite);
+  text-decoration: none;
+}
+.navbar-dept-badge {
+  font-size: .75rem; font-weight: 800; letter-spacing: .06em;
+  padding: .3rem .75rem; border-radius: 20px;
+  background: var(--saffron-lite); color: var(--saffron-dark);
+  border: 1px solid var(--saffron-mid);
+}
+
+/* ── PROGRESS BAR ── */
+.progress-strip {
+  height: 4px; background: var(--border);
+  position: sticky; top: 64px; z-index: 99;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
+  transition: width .4s ease;
+}
+
+/* ── LAYOUT ── */
+.lms-layout {
+  display: flex; max-width: 1280px; margin: 0 auto;
+  padding: 2rem 1.5rem; gap: 2rem;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 280px; flex-shrink: 0;
+  position: sticky; top: 84px; align-self: flex-start;
+  max-height: calc(100vh - 100px); overflow-y: auto;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.sidebar-header {
+  font-size: .7rem; font-weight: 900; letter-spacing: .1em;
+  color: var(--warm-gray); text-transform: uppercase;
+  padding: 0 .5rem .75rem;
+}
+.sidebar-nav { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.sidebar-nav li button {
+  width: 100%; text-align: left;
+  padding: .65rem .9rem; border-radius: var(--radius-sm);
+  border: none; cursor: pointer;
+  font-family: 'Nunito', sans-serif; font-size: .875rem; font-weight: 700;
+  color: var(--warm-mid); background: transparent;
+  display: flex; align-items: center; gap: .65rem;
+  transition: all .15s;
+}
+.sidebar-nav li button:hover {
+  background: var(--saffron-lite); color: var(--saffron);
+}
+.sidebar-nav li button.active {
+  background: var(--saffron); color: white;
+}
+.sidebar-nav li button .mod-num {
+  width: 24px; height: 24px; border-radius: 6px;
+  background: rgba(255,255,255,.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 900; flex-shrink: 0;
+}
+.sidebar-nav li button:not(.active) .mod-num {
+  background: var(--warm-light); color: var(--warm-gray);
+}
+.sidebar-nav li button .mod-check {
+  margin-left: auto; font-size: .8rem;
+}
+.sidebar-divider {
+  height: 1px; background: var(--border); margin: .75rem 0;
+}
+
+/* ── MAIN CONTENT ── */
+.main-content { flex: 1; min-width: 0; }
+
+/* ── COURSE HOME ── */
+.course-hero {
+  background: linear-gradient(135deg, var(--warm-dark) 0%, #3C2A1A 100%);
+  border-radius: var(--radius); padding: 3rem;
+  color: white; margin-bottom: 2rem;
+  position: relative; overflow: hidden;
+}
+.course-hero::before {
+  content: "॥"; position: absolute;
+  right: 2rem; top: 50%; transform: translateY(-50%);
+  font-size: 10rem; opacity: .06;
+  font-family: 'Yeseva One', serif; line-height: 1;
+}
+.course-hero-badge {
+  display: inline-block;
+  background: rgba(249,115,22,.2); color: var(--saffron-mid);
+  border: 1px solid rgba(249,115,22,.3);
+  font-size: .75rem; font-weight: 900; letter-spacing: .08em;
+  padding: .3rem .85rem; border-radius: 20px; margin-bottom: 1.25rem;
+  text-transform: uppercase;
+}
+.course-hero h1 {
+  font-size: 2.25rem; color: white; margin-bottom: .75rem;
+}
+.course-hero p {
+  font-size: 1rem; color: rgba(255,255,255,.7);
+  max-width: 580px; margin-bottom: 1.75rem;
+}
+.course-meta-row {
+  display: flex; flex-wrap: wrap; gap: 1.25rem;
+}
+.course-meta-item {
+  display: flex; align-items: center; gap: .4rem;
+  font-size: .875rem; color: rgba(255,255,255,.6);
+}
+.course-meta-item strong { color: white; }
+
+.module-cards-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+.module-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem;
+  cursor: pointer; transition: all .2s;
+  position: relative; overflow: hidden;
+}
+.module-card::after {
+  content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
+  transform: scaleX(0); transform-origin: left; transition: transform .25s;
+}
+.module-card:hover {
+  box-shadow: var(--shadow-md); transform: translateY(-2px); border-color: var(--saffron-mid);
+}
+.module-card:hover::after { transform: scaleX(1); }
+.module-card .card-num {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--saffron-lite); color: var(--saffron);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Yeseva One', serif; font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+.module-card h3 { font-size: 1rem; margin-bottom: .4rem; }
+.module-card p { font-size: .8rem; color: var(--warm-gray); margin-bottom: .85rem; }
+.module-card .card-dur {
+  font-size: .75rem; color: var(--warm-gray);
+  display: flex; align-items: center; gap: .3rem;
+}
+.module-card.completed { border-color: var(--green); }
+.module-card.completed .card-num { background: var(--green-lite); color: var(--green); }
+
+/* ── MODULE PAGE ── */
+.module-page { display: none; }
+.module-page.active { display: block; }
+
+.module-header {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 2rem;
+  margin-bottom: 1.5rem;
+  border-left: 5px solid var(--saffron);
+}
+.module-header .mod-badge {
+  font-size: .7rem; font-weight: 900; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--saffron);
+  margin-bottom: .5rem;
+}
+.module-header h2 { font-size: 1.75rem; margin-bottom: .5rem; }
+.module-header p { color: var(--warm-gray); font-size: .9rem; max-width: 640px; }
+.module-meta-chips {
+  display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem;
+}
+.chip {
+  font-size: .75rem; font-weight: 700;
+  padding: .3rem .75rem; border-radius: 20px;
+  background: var(--warm-light); color: var(--warm-mid);
+  display: flex; align-items: center; gap: .3rem;
+}
+
+/* ── SECTION CARD ── */
+.section-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 2rem;
+  margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);
+}
+.section-card h3 {
+  font-size: 1.2rem; margin-bottom: 1rem;
+  padding-bottom: .75rem; border-bottom: 2px solid var(--warm-light);
+  display: flex; align-items: center; gap: .6rem;
+}
+.section-card h3 .section-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--saffron-lite); color: var(--saffron);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; flex-shrink: 0;
+}
+
+/* ── INTRO BOX ── */
+.intro-box {
+  background: linear-gradient(135deg, var(--saffron-lite), #FFF3E0);
+  border: 1px solid var(--saffron-mid);
+  border-radius: var(--radius-sm); padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.intro-box .intro-label {
+  font-size: .7rem; font-weight: 900; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--saffron-dark); margin-bottom: .5rem;
+}
+.intro-box p { color: var(--warm-mid); margin: 0; }
+
+/* ── LESSON CARD ── */
+.lesson-card {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; margin-bottom: 1rem;
+}
+.lesson-header {
+  padding: 1rem 1.25rem;
+  background: var(--warm-light);
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.lesson-header h4 {
+  font-size: .95rem; font-family: 'Yeseva One', serif;
+  display: flex; align-items: center; gap: .6rem;
+}
+.lesson-num {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--saffron); color: white;
+  font-size: .8rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.lesson-toggle { color: var(--warm-gray); font-size: 1.2rem; transition: transform .2s; }
+.lesson-body {
+  padding: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.lesson-body.open { display: block; }
+.lesson-body .lesson-text { color: var(--warm-mid); line-height: 1.8; margin-bottom: 1.25rem; }
+.lesson-body .lesson-example {
+  background: var(--blue-lite); border-left: 4px solid var(--blue);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 1rem 1.25rem; font-size: .9rem;
+  color: #1D4ED8; margin-bottom: 1rem;
+}
+.lesson-body .lesson-example strong {
+  display: block; font-size: .75rem; letter-spacing: .06em;
+  text-transform: uppercase; margin-bottom: .3rem; color: var(--blue);
+}
+.key-points { list-style: none; padding: 0; }
+.key-points li {
+  padding: .45rem .6rem .45rem 1.75rem;
+  position: relative; font-size: .875rem; color: var(--warm-mid);
+}
+.key-points li::before {
+  content: "✦"; position: absolute; left: .4rem;
+  color: var(--saffron); font-size: .7rem; top: .55rem;
+}
+
+/* ── DO / DON'T ── */
+.do-dont-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+}
+.do-box {
+  background: var(--green-lite); border: 1px solid #BBF7D0;
+  border-radius: var(--radius-sm); padding: 1.25rem;
+}
+.dont-box {
+  background: var(--red-lite); border: 1px solid #FECACA;
+  border-radius: var(--radius-sm); padding: 1.25rem;
+}
+.do-box h4 { color: var(--green); font-size: .9rem; margin-bottom: .75rem; }
+.dont-box h4 { color: var(--red); font-size: .9rem; margin-bottom: .75rem; }
+.do-box ul, .dont-box ul { list-style: none; padding: 0; }
+.do-box li, .dont-box li {
+  font-size: .875rem; padding: .35rem 0;
+  padding-left: 1.4rem; position: relative;
+}
+.do-box li::before { content: "✔"; position: absolute; left: 0; color: var(--green); }
+.dont-box li::before { content: "✘"; position: absolute; left: 0; color: var(--red); }
+
+/* ── KNOWLEDGE CHECK ── */
+.kc-card {
+  background: var(--saffron-lite); border: 1px solid var(--saffron-mid);
+  border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: .75rem;
+}
+.kc-question { font-weight: 700; font-size: .9rem; margin-bottom: .5rem; }
+.kc-answer {
+  font-size: .875rem; color: var(--warm-mid);
+  padding: .6rem .9rem; background: white;
+  border-radius: 6px; border: 1px solid var(--border);
+  display: none;
+}
+.kc-toggle-btn {
+  margin-top: .6rem; font-size: .78rem; font-weight: 700;
+  padding: .3rem .7rem; border-radius: 6px;
+  border: 1px solid var(--saffron); background: transparent;
+  color: var(--saffron); cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+}
+.kc-toggle-btn:hover { background: var(--saffron); color: white; }
+
+/* ── SUMMARY BOX ── */
+.summary-box {
+  background: linear-gradient(135deg, #1C1917, #3C2A1A);
+  border-radius: var(--radius-sm); padding: 1.5rem; color: white;
+}
+.summary-box .summary-label {
+  font-size: .7rem; font-weight: 900; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--saffron-mid); margin-bottom: .5rem;
+}
+.summary-box p { color: rgba(255,255,255,.8); margin: 0; line-height: 1.75; }
+
+/* ── QUIZ ── */
+.quiz-section {
+  background: var(--white); border: 2px solid var(--saffron);
+  border-radius: var(--radius); padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+.quiz-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.quiz-header h3 {
+  font-size: 1.2rem; border: none; padding: 0; margin: 0;
+  display: flex; align-items: center; gap: .5rem;
+}
+.quiz-score-display {
+  font-size: .875rem; font-weight: 700; color: var(--warm-gray);
+}
+.quiz-progress {
+  height: 6px; background: var(--warm-light);
+  border-radius: 3px; margin-bottom: 1.5rem; overflow: hidden;
+}
+.quiz-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
+  transition: width .4s;
+}
+.quiz-q { margin-bottom: 1.5rem; }
+.quiz-q-num {
+  font-size: .7rem; font-weight: 900; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--saffron); margin-bottom: .4rem;
+}
+.quiz-q-text { font-weight: 700; font-size: .975rem; margin-bottom: .9rem; line-height: 1.45; }
+.quiz-options { display: flex; flex-direction: column; gap: .5rem; }
+.quiz-option {
+  padding: .75rem 1rem;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; font-size: .9rem; font-family: 'Nunito', sans-serif;
+  background: white; display: flex; align-items: center; gap: .75rem;
+  transition: all .15s; text-align: left;
+}
+.quiz-option .opt-letter {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--warm-light); color: var(--warm-gray);
+  font-size: .8rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all .15s;
+}
+.quiz-option:hover { border-color: var(--saffron); background: var(--saffron-lite); }
+.quiz-option:hover .opt-letter { background: var(--saffron); color: white; }
+.quiz-option.selected { border-color: var(--saffron); background: var(--saffron-lite); }
+.quiz-option.selected .opt-letter { background: var(--saffron); color: white; }
+.quiz-option.correct { border-color: var(--green); background: var(--green-lite); pointer-events: none; }
+.quiz-option.correct .opt-letter { background: var(--green); color: white; }
+.quiz-option.wrong { border-color: var(--red); background: var(--red-lite); pointer-events: none; }
+.quiz-option.wrong .opt-letter { background: var(--red); color: white; }
+.quiz-option.disabled { pointer-events: none; opacity: .7; }
+.quiz-explanation {
+  margin-top: .65rem; padding: .75rem 1rem;
+  background: var(--blue-lite); border-radius: var(--radius-sm);
+  font-size: .85rem; color: #1D4ED8; display: none;
+  border-left: 3px solid var(--blue);
+}
+.quiz-btn {
+  padding: .75rem 1.75rem; border-radius: var(--radius-sm);
+  border: none; cursor: pointer; font-family: 'Nunito', sans-serif;
+  font-size: .9rem; font-weight: 800; transition: all .15s;
+}
+.quiz-btn-primary {
+  background: var(--saffron); color: white;
+}
+.quiz-btn-primary:hover { background: var(--saffron-dark); transform: translateY(-1px); }
+.quiz-btn-secondary {
+  background: var(--warm-light); color: var(--warm-mid);
+}
+.quiz-result {
+  text-align: center; padding: 2rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--saffron-lite); display: none;
+}
+.quiz-result .result-score {
+  font-size: 3rem; font-family: 'Yeseva One', serif;
+  color: var(--saffron);
+}
+.quiz-result .result-msg { font-size: 1rem; color: var(--warm-mid); margin: .5rem 0 1rem; }
+.quiz-result .result-pass {
+  font-size: .875rem; font-weight: 700; padding: .4rem 1rem;
+  border-radius: 20px; display: inline-block;
+}
+.result-passed { background: var(--green-lite); color: var(--green); }
+.result-failed { background: var(--red-lite); color: var(--red); }
+
+/* ── FINAL EXAM ── */
+.final-exam-page { display: none; }
+.final-exam-page.active { display: block; }
+.final-exam-hero {
+  background: linear-gradient(135deg, #1C1917, #3C2A1A);
+  border-radius: var(--radius); padding: 2.5rem;
+  color: white; margin-bottom: 2rem; text-align: center;
+}
+.final-exam-hero h2 { color: white; font-size: 2rem; margin-bottom: .5rem; }
+.final-exam-hero p { color: rgba(255,255,255,.65); max-width: 500px; margin: 0 auto; }
+
+/* ── NEXT / NAV BUTTONS ── */
+.module-nav-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 2rem; padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.btn {
+  padding: .7rem 1.5rem; border-radius: var(--radius-sm);
+  font-family: 'Nunito', sans-serif; font-size: .9rem; font-weight: 800;
+  border: none; cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; gap: .4rem;
+}
+.btn-primary { background: var(--saffron); color: white; }
+.btn-primary:hover { background: var(--saffron-dark); }
+.btn-ghost {
+  background: transparent; color: var(--warm-gray);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--saffron); color: var(--saffron); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .lms-layout { flex-direction: column; padding: 1rem; }
+  .sidebar { width: 100%; position: static; max-height: none; }
+  .sidebar-nav { flex-direction: row; flex-wrap: wrap; }
+  .sidebar-nav li button { flex-direction: column; font-size: .75rem; padding: .5rem; width: auto; }
+  .sidebar-nav li button .mod-num { margin: 0; }
+  .course-hero { padding: 1.75rem; }
+  .course-hero h1 { font-size: 1.6rem; }
+  .do-dont-grid { grid-template-columns: 1fr; }
+  .module-cards-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .navbar { padding: 0 1rem; }
+  .navbar-links { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="navbar-brand">
+    <div class="navbar-logo">ॐ</div>
+    <span class="navbar-title">Naman<span>LMS</span></span>
+  </div>
+  <div class="navbar-links">
+    <a href="#" onclick="showHome();return false;" id="nav-home" class="active">Home</a>
+    <a href="#" onclick="showModule(0);return false;" id="nav-modules">Modules</a>
+    <a href="#" onclick="showFinalExam();return false;" id="nav-exam">Final Exam</a>
+  </div>
+  <span class="navbar-dept-badge">Finance</span>
+</nav>
+
+<!-- PROGRESS BAR -->
+<div class="progress-strip">
+  <div class="progress-fill" id="global-progress" style="width:0%"></div>
+</div>
+
+<!-- LAYOUT -->
+<div class="lms-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Course Modules</div>
+    <ul class="sidebar-nav">
+      <li>
+        <button onclick="showHome()" id="sb-home" class="active">
+          <span class="mod-num">🏠</span>
+          <span>Course Home</span>
+        </button>
+      </li>
+      <li>
+        <button onclick="showModule(0)" id="sb-mod-0">
+          <span class="mod-num">1</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Module 1</span>
+          <span class="mod-check"></span>
+        </button>
+      </li>
+<li>
+        <button onclick="showModule(1)" id="sb-mod-1">
+          <span class="mod-num">2</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Module 2</span>
+          <span class="mod-check"></span>
+        </button>
+      </li>
+<li>
+        <button onclick="showModule(2)" id="sb-mod-2">
+          <span class="mod-num">3</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Module 3</span>
+          <span class="mod-check"></span>
+        </button>
+      </li>
+      <div class="sidebar-divider"></div>
+      <li>
+        <button onclick="showFinalExam()" id="sb-exam">
+          <span class="mod-num">🎓</span>
+          <span>Final Exam</span>
+        </button>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- HOME PAGE -->
+    <div id="page-home" class="module-page active">
+      <div class="course-hero">
+          <div class="course-hero-badge">Finance Department</div>
+          <h1>Finance Department Training Course</h1>
+          <p>Comprehensive training for the finance department of NamanDarshan, covering essential skills and knowledge for effective financial management.</p>
+          <div class="course-meta-row">
+            <div class="course-meta-item">⏱ <strong>4-6 hours</strong></div>
+            <div class="course-meta-item">📊 <strong>Intermediate</strong></div>
+            <div class="course-meta-item">👥 <strong>Finance team members, accountants, financial analysts</strong></div>
+            <div class="course-meta-item">📚 <strong>3 Modules</strong></div>
+          </div>
+        </div>
+        <div class="module-cards-grid"><div class="module-card" id="mod-card-0" onclick="showModule(0)">
+              <div class="card-num">1</div>
+              <h3>Module 1</h3>
+              <p></p>
+              <div class="card-dur">⏱ 45 min &nbsp;·&nbsp; 0 lessons</div>
+            </div><div class="module-card" id="mod-card-1" onclick="showModule(1)">
+              <div class="card-num">2</div>
+              <h3>Module 2</h3>
+              <p></p>
+              <div class="card-dur">⏱ 45 min &nbsp;·&nbsp; 0 lessons</div>
+            </div><div class="module-card" id="mod-card-2" onclick="showModule(2)">
+              <div class="card-num">3</div>
+              <h3>Module 3</h3>
+              <p></p>
+              <div class="card-dur">⏱ 45 min &nbsp;·&nbsp; 0 lessons</div>
+            </div></div>
+    </div>
+
+    <!-- MODULE PAGES -->
+    <div id="mod-page-0" class="module-page">
+  <div class="module-header">
+    <div class="mod-badge">Module 1 of 3</div>
+    <h2>Module 1</h2>
+    <div class="module-meta-chips">
+      <span class="chip">⏱ 45 min</span>
+      <span class="chip">📖 0 lessons</span>
+      <span class="chip">📝 0 quiz questions</span>
+    </div>
+  </div>
+
+  
+
+  
+
+  <div class="section-card">
+    <h3><span class="section-icon">📖</span>Lessons</h3>
+    
+  </div>
+
+  
+
+  
+
+  
+
+  
+
+  <div class="module-nav-row">
+    <span></span>
+    <button class="btn btn-primary" onclick="showModule(1)">Next Module →</button>
+  </div>
+</div>
+<div id="mod-page-1" class="module-page">
+  <div class="module-header">
+    <div class="mod-badge">Module 2 of 3</div>
+    <h2>Module 2</h2>
+    <div class="module-meta-chips">
+      <span class="chip">⏱ 45 min</span>
+      <span class="chip">📖 0 lessons</span>
+      <span class="chip">📝 0 quiz questions</span>
+    </div>
+  </div>
+
+  
+
+  
+
+  <div class="section-card">
+    <h3><span class="section-icon">📖</span>Lessons</h3>
+    
+  </div>
+
+  
+
+  
+
+  
+
+  
+
+  <div class="module-nav-row">
+    <button class="btn btn-ghost" onclick="showModule(0)">← Previous</button>
+    <button class="btn btn-primary" onclick="showModule(2)">Next Module →</button>
+  </div>
+</div>
+<div id="mod-page-2" class="module-page">
+  <div class="module-header">
+    <div class="mod-badge">Module 3 of 3</div>
+    <h2>Module 3</h2>
+    <div class="module-meta-chips">
+      <span class="chip">⏱ 45 min</span>
+      <span class="chip">📖 0 lessons</span>
+      <span class="chip">📝 0 quiz questions</span>
+    </div>
+  </div>
+
+  
+
+  
+
+  <div class="section-card">
+    <h3><span class="section-icon">📖</span>Lessons</h3>
+    
+  </div>
+
+  
+
+  
+
+  
+
+  
+
+  <div class="module-nav-row">
+    <button class="btn btn-ghost" onclick="showModule(1)">← Previous</button>
+    <button class="btn btn-primary" onclick="showFinalExam()">Take Final Exam 🎓</button>
+  </div>
+</div>
+
+    <!-- FINAL EXAM PAGE -->
+    <div id="final-exam-page" class="final-exam-page">
+  <div class="final-exam-hero">
+    <h2>🎓 Final Course Examination</h2>
+    <p>Complete all 3 modules before attempting the final exam.
+       You need 70% or above to receive your course certificate.</p>
+  </div>
+  <div class="quiz-section">
+  <div class="quiz-header">
+    <h3>🧪 Module Assessment</h3>
+    <div class="quiz-score-display">Pass mark: 70%</div>
+  </div>
+  <div class="quiz-q">
+  <div class="quiz-q-num">Question 1 of 2</div>
+  <div class="quiz-q-text">What is the primary purpose of a balance sheet?</div>
+  <div class="quiz-options"><button class="quiz-option" data-quiz="final" data-qidx="0" onclick="selectOption('final',0,0)"><span class="opt-letter">A</span>To report revenues and expenses</button><button class="quiz-option" data-quiz="final" data-qidx="0" onclick="selectOption('final',0,1)"><span class="opt-letter">B</span>To report assets, liabilities, and equity</button><button class="quiz-option" data-quiz="final" data-qidx="0" onclick="selectOption('final',0,2)"><span class="opt-letter">C</span>To report cash flows</button></div>
+  <div class="quiz-explanation" id="exp-final-0"></div>
+</div><div class="quiz-q">
+  <div class="quiz-q-num">Question 2 of 2</div>
+  <div class="quiz-q-text">What is the difference between a budget and a forecast?</div>
+  <div class="quiz-options"><button class="quiz-option" data-quiz="final" data-qidx="1" onclick="selectOption('final',1,0)"><span class="opt-letter">A</span>A budget is a forecast</button><button class="quiz-option" data-quiz="final" data-qidx="1" onclick="selectOption('final',1,1)"><span class="opt-letter">B</span>A forecast is a budget</button><button class="quiz-option" data-quiz="final" data-qidx="1" onclick="selectOption('final',1,2)"><span class="opt-letter">C</span>A budget is a planned financial outcome, while a forecast is a predicted financial outcome</button></div>
+  <div class="quiz-explanation" id="exp-final-1"></div>
+</div>
+  <div id="quiz-result-final" class="quiz-result">
+    <div class="result-score">0%</div>
+    <div class="result-msg"></div>
+    <span class="result-pass"></span>
+  </div>
+  <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap;">
+    <button class="quiz-btn quiz-btn-primary" id="quiz-submit-final" onclick="submitQuiz('final')">Submit Answers</button>
+    <button class="quiz-btn quiz-btn-secondary" id="quiz-retry-final" onclick="retryQuiz('final')" style="display:none;">↺ Retry Quiz</button>
+  </div>
+</div>
+</div>
+
+  </main>
+</div>
+
+<script>
+// ── QUIZ DATA ──────────────────────────────────────────────────────────────
+const QUIZ_DATA = {"mod0": [], "mod1": [], "mod2": [], "final": [{"correct_index": 0, "explanation": ""}, {"correct_index": 0, "explanation": ""}]};
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+const totalModules = 3;
+const completedModules = new Set();
+const moduleScores = {};
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────
+function hideAll() {
+  document.querySelectorAll('.module-page, .final-exam-page').forEach(el => {
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.navbar-links a').forEach(a => a.classList.remove('active'));
+}
+
+function showHome() {
+  hideAll();
+  document.getElementById('page-home').classList.add('active');
+  document.getElementById('sb-home').classList.add('active');
+  document.getElementById('nav-home').classList.add('active');
+}
+
+function showModule(idx) {
+  hideAll();
+  const page = document.getElementById('mod-page-' + idx);
+  if (page) page.classList.add('active');
+  const sb = document.getElementById('sb-mod-' + idx);
+  if (sb) sb.classList.add('active');
+  document.getElementById('nav-modules').classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function showFinalExam() {
+  hideAll();
+  document.getElementById('final-exam-page').classList.add('active');
+  document.getElementById('sb-exam').classList.add('active');
+  document.getElementById('nav-exam').classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ── LESSON TOGGLE ─────────────────────────────────────────────────────────
+function toggleLesson(lessonId) {
+  const body = document.getElementById('lesson-body-' + lessonId);
+  const tog  = document.getElementById('lesson-tog-' + lessonId);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (tog) tog.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+// ── KNOWLEDGE CHECK ───────────────────────────────────────────────────────
+function toggleKC(kcId) {
+  const ans = document.getElementById('kc-ans-' + kcId);
+  const btn = document.getElementById('kc-btn-' + kcId);
+  if (!ans) return;
+  const shown = ans.style.display === 'block';
+  ans.style.display = shown ? 'none' : 'block';
+  if (btn) btn.textContent = shown ? 'Show Answer' : 'Hide Answer';
+}
+
+// ── QUIZ ENGINE ───────────────────────────────────────────────────────────
+const quizState = {};
+
+function initQuiz(quizId) {
+  if (!quizState[quizId]) {
+    quizState[quizId] = {
+      answers: {},
+      submitted: false,
+      score: 0
+    };
+  }
+}
+
+function selectOption(quizId, qIdx, optIdx) {
+  initQuiz(quizId);
+  if (quizState[quizId].submitted) return;
+  quizState[quizId].answers[qIdx] = optIdx;
+  // highlight selected
+  const opts = document.querySelectorAll(`[data-quiz="${quizId}"][data-qidx="${qIdx}"] .quiz-option`);
+  opts.forEach((o, i) => {
+    o.classList.toggle('selected', i === optIdx);
+  });
+}
+
+function submitQuiz(quizId) {
+  initQuiz(quizId);
+  const state = quizState[quizId];
+  if (state.submitted) return;
+  state.submitted = true;
+
+  const questions = QUIZ_DATA[quizId] || [];
+  let correct = 0;
+
+  questions.forEach((q, qIdx) => {
+    const chosen = state.answers[qIdx];
+    const opts = document.querySelectorAll(`[data-quiz="${quizId}"][data-qidx="${qIdx}"] .quiz-option`);
+    opts.forEach((o, i) => {
+      o.classList.add('disabled');
+      if (i === q.correct_index) o.classList.add('correct');
+      else if (i === chosen && i !== q.correct_index) o.classList.add('wrong');
+    });
+    const expEl = document.getElementById(`exp-${quizId}-${qIdx}`);
+    if (expEl) expEl.style.display = 'block';
+    if (chosen === q.correct_index) correct++;
+  });
+
+  state.score = correct;
+  const pct = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
+  moduleScores[quizId] = pct;
+
+  // show result
+  const resultEl = document.getElementById(`quiz-result-${quizId}`);
+  if (resultEl) {
+    resultEl.style.display = 'block';
+    resultEl.querySelector('.result-score').textContent = pct + '%';
+    resultEl.querySelector('.result-msg').textContent =
+      correct + ' of ' + questions.length + ' correct';
+    const badge = resultEl.querySelector('.result-pass');
+    if (pct >= 70) {
+      badge.textContent = '✓ Passed'; badge.className = 'result-pass result-passed';
+    } else {
+      badge.textContent = '✗ Needs Improvement'; badge.className = 'result-pass result-failed';
+    }
+  }
+
+  // mark module complete if passed
+  if (pct >= 70 && quizId.startsWith('mod')) {
+    const modIdx = parseInt(quizId.replace('mod', ''));
+    if (!isNaN(modIdx)) markModuleComplete(modIdx, pct);
+  }
+
+  // POST progress
+  postProgress(quizId, pct);
+
+  // update quiz submit btn
+  const submitBtn = document.getElementById(`quiz-submit-${quizId}`);
+  if (submitBtn) submitBtn.style.display = 'none';
+  const retryBtn = document.getElementById(`quiz-retry-${quizId}`);
+  if (retryBtn) retryBtn.style.display = 'inline-flex';
+}
+
+function retryQuiz(quizId) {
+  quizState[quizId] = { answers: {}, submitted: false, score: 0 };
+  const allOpts = document.querySelectorAll(`[data-quiz="${quizId}"] .quiz-option`);
+  allOpts.forEach(o => o.className = 'quiz-option');
+  const allExp = document.querySelectorAll(`[id^="exp-${quizId}-"]`);
+  allExp.forEach(e => e.style.display = 'none');
+  const resultEl = document.getElementById(`quiz-result-${quizId}`);
+  if (resultEl) resultEl.style.display = 'none';
+  const submitBtn = document.getElementById(`quiz-submit-${quizId}`);
+  if (submitBtn) submitBtn.style.display = 'inline-flex';
+  const retryBtn = document.getElementById(`quiz-retry-${quizId}`);
+  if (retryBtn) retryBtn.style.display = 'none';
+}
+
+function markModuleComplete(modIdx, score) {
+  completedModules.add(modIdx);
+  const card = document.getElementById('mod-card-' + modIdx);
+  if (card) card.classList.add('completed');
+  const sbBtn = document.getElementById('sb-mod-' + modIdx);
+  if (sbBtn) {
+    const check = sbBtn.querySelector('.mod-check');
+    if (check) check.textContent = '✓';
+  }
+  updateGlobalProgress();
+}
+
+function updateGlobalProgress() {
+  const pct = totalModules > 0 ? Math.round((completedModules.size / totalModules) * 100) : 0;
+  const bar = document.getElementById('global-progress');
+  if (bar) bar.style.width = pct + '%';
+}
+
+function postProgress(moduleId, score) {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const headers = { 
+      'Content-Type': 'application/json',
+      ...(token && {'Authorization': `Bearer ${token}`})
+    };
+    fetch('/api/update-progress', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ module_id: moduleId, score: score, timestamp: new Date().toISOString() })
+    }).catch(() => {});
+  } catch(e) {}
+}
+
+// open first lesson by default on page load
+document.querySelectorAll('.lesson-body').forEach((b, i) => { if (i === 0) b.classList.add('open'); });
+</script>
+</body>
+</html>

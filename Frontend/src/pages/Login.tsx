@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth, type UserRole } from "@/contexts/AuthContext";
 import { API_BASE_URL } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const roles: { role: UserRole; icon: string; label: string; sub: string }[] = [
   { role: "Employee", icon: "👤", label: "Employee", sub: "Team member" },
@@ -13,11 +15,13 @@ const features = [
   { icon: "🤖", text: "AI-powered learning paths and instant answers" },
   { icon: "📊", text: "Real-time progress tracking and KPI monitoring" },
   { icon: "🛕", text: "Department-specific courses from namandarshan.com" },
-  { icon: "🗓", text: "Leave management, holidays & project tracking" },
+  { icon: "🗓", text: "Leave management, daily calendar & project tracking" },
 ];
 
 const Login: React.FC = () => {
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedRole, setSelectedRole] = useState<UserRole>("Employee");
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
@@ -56,12 +60,49 @@ const Login: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setIsLoading(true);
-    const success = await login(userId, userName, password, department, selectedRole);
-    if (!success) {
-      setError("Invalid credentials. Please check your User ID, name, password and department.");
+
+    if (!userId || !userName || !password || (isEmployee && !department)) {
+      const message = isEmployee
+        ? "Please fill in your User ID, name, password, and department."
+        : "Please fill in your User ID, name, and password.";
+      setError(message);
+      toast({
+        title: "Missing fields",
+        description: message,
+        variant: "destructive",
+      });
+      return;
     }
-    setIsLoading(false);
+
+    setIsLoading(true);
+
+    try {
+      await login({
+        user_id: userId,
+        user_name: userName,
+        password,
+        department: isEmployee ? department : selectedRole,
+      });
+      toast({
+        title: "Signed in",
+        description: "Welcome back to your workspace.",
+      });
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Login failed:", err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Invalid credentials. Please check your User ID, name, password and department.";
+      setError(message);
+      toast({
+        title: "Login failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const isEmployee = selectedRole === "Employee";

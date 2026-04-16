@@ -1,0 +1,227 @@
+﻿python : Traceback (most 
+recent call last):
+At line:1 char:1
++ python -m uvicorn 
+main:app --host 0.0.0.0 
+--port 8000 2>&1 | 
+Out-File ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (Tra  
+  ceback (most recent ca   
+ ll last)::String) [],     
+RemoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+  File "C:\Users\sumbu\Down
+loads\namandarshan-learn-ai
+-fullstack\namandarshan-lea
+rn-ai-fullstack\Backend\mai
+n.py", line 108, in 
+<module>
+    init_mongodb()
+  File "C:\Users\sumbu\Down
+loads\namandarshan-learn-ai
+-fullstack\namandarshan-lea
+rn-ai-fullstack\Backend\mon
+go_db.py", line 350, in 
+init_mongodb
+    return connect()
+           ^^^^^^^^^
+  File "C:\Users\sumbu\Down
+loads\namandarshan-learn-ai
+-fullstack\namandarshan-lea
+rn-ai-fullstack\Backend\mon
+go_db.py", line 61, in 
+connect
+    print(f"\U0001f504 
+Connecting to MongoDB: 
+{MONGODB_URL}")
+  File "C:\Users\sumbu\anac
+onda3\Lib\encodings\cp1252.
+py", line 19, in encode
+    return codecs.charmap_e
+ncode(input,self.errors,enc
+oding_table)[0]
+           ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^
+UnicodeEncodeError: 
+'charmap' codec can't 
+encode character 
+'\U0001f504' in position 
+0: character maps to 
+<undefined>
+
+During handling of the 
+above exception, another 
+exception occurred:
+
+Traceback (most recent 
+call last):
+  File "<frozen runpy>", 
+line 198, in 
+_run_module_as_main
+  File "<frozen runpy>", 
+line 88, in _run_code
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\__main__.py", line 4, 
+in <module>
+    uvicorn.main()
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\cli
+ck\core.py", line 1485, in 
+__call__
+    return 
+self.main(*args, **kwargs)
+           
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\cli
+ck\core.py", line 1406, in 
+main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\cli
+ck\core.py", line 1269, in 
+invoke
+    return 
+ctx.invoke(self.callback, 
+**ctx.params)
+           ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\cli
+ck\core.py", line 824, in 
+invoke
+    return callback(*args, 
+**kwargs)
+           
+^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\main.py", line 433, 
+in main
+    run(
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\main.py", line 606, 
+in run
+    server.run()
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\server.py", line 75, 
+in run
+    return asyncio_run(self
+.serve(sockets=sockets), lo
+op_factory=self.config.get_
+loop_factory())
+           ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\_compat.py", line 30, 
+in asyncio_run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\asyncio\runners.p
+y", line 118, in run
+    return self._loop.run_u
+ntil_complete(task)
+           ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\asyncio\base_even
+ts.py", line 653, in 
+run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\server.py", line 79, 
+in serve
+    await 
+self._serve(sockets)
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\server.py", line 86, 
+in _serve
+    config.load()
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\config.py", line 441, 
+in load
+    self.loaded_app = impor
+t_from_string(self.app)
+                      ^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\site-packages\uvi
+corn\importer.py", line 
+19, in import_from_string
+    module = importlib.impo
+rt_module(module_str)
+             ^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\sumbu\anac
+onda3\Lib\importlib\__init_
+_.py", line 126, in 
+import_module
+    return _bootstrap._gcd_
+import(name[level:], 
+package, level)
+           ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^
+  File "<frozen 
+importlib._bootstrap>", 
+line 1206, in _gcd_import
+  File "<frozen 
+importlib._bootstrap>", 
+line 1178, in 
+_find_and_load
+  File "<frozen 
+importlib._bootstrap>", 
+line 1149, in 
+_find_and_load_unlocked
+  File "<frozen 
+importlib._bootstrap>", 
+line 690, in _load_unlocked
+  File "<frozen importlib._
+bootstrap_external>", line 
+940, in exec_module
+  File "<frozen 
+importlib._bootstrap>", 
+line 241, in 
+_call_with_frames_removed
+  File "C:\Users\sumbu\Down
+loads\namandarshan-learn-ai
+-fullstack\namandarshan-lea
+rn-ai-fullstack\Backend\mai
+n.py", line 111, in 
+<module>
+    print(f"\u26a0\ufe0f  
+MongoDB initialization 
+warning: {e}")
+  File "C:\Users\sumbu\anac
+onda3\Lib\encodings\cp1252.
+py", line 19, in encode
+    return codecs.charmap_e
+ncode(input,self.errors,enc
+oding_table)[0]
+           ^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^
+UnicodeEncodeError: 
+'charmap' codec can't 
+encode characters in 
+position 0-1: character 
+maps to <undefined>

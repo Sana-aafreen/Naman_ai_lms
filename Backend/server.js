@@ -16,7 +16,10 @@ app.get('/', (req, res) => {
 });
 
 const sheetsRoutes = require('./routes/sheets');
+const monitoringRoutes = require('./routes/monitoring');
+
 app.use('/api', sheetsRoutes);
+app.use('/api', monitoringRoutes);
 
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);

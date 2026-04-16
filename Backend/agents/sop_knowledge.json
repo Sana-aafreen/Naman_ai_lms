@@ -1,0 +1,67 @@
+[
+  {
+    "department": "Sales",
+    "title": "Inbound Lead Handling",
+    "steps": [
+      "Log the lead in CRM within 5 minutes.",
+      "Tag lead priority based on urgency.",
+      "Send the first WhatsApp greeting within 15 minutes.",
+      "Schedule or complete the qualification call based on priority.",
+      "Send the quote and payment link, then follow the standard follow-up cadence."
+    ],
+    "keywords": ["lead", "crm", "quote", "payment", "sales", "whatsapp"],
+    "escalation": "Escalate to the Sales lead if the devotee is high priority or payment is blocked."
+  },
+  {
+    "department": "Operations",
+    "title": "VIP Darshan Day-of Execution",
+    "steps": [
+      "Confirm arrival details, pickup point, and dress code with the devotee.",
+      "Reconfirm the darshan slot with the on-ground partner one hour before.",
+      "Meet the devotee, verify the booking, and escort them to the sanctum.",
+      "Log delays, access issues, or special mobility needs immediately.",
+      "Complete the post-darshan handoff and feedback step."
+    ],
+    "keywords": ["vip", "darshan", "escort", "ops", "slot", "temple"],
+    "escalation": "Escalate immediately to Operations if there is a slot conflict, temple access issue, or VIP complaint."
+  },
+  {
+    "department": "Sewa",
+    "title": "Puja Sankalp Confirmation",
+    "steps": [
+      "Schedule the sankalp call in the preferred calling window.",
+      "Confirm devotee name, gotra, puja details, and timing.",
+      "Ask for phonetic spelling for uncommon names.",
+      "Repeat all details back before finalizing the form.",
+      "Send the reminder and link 24 hours before the puja."
+    ],
+    "keywords": ["sankalp", "puja", "gotra", "reminder", "sewa"],
+    "escalation": "Escalate to the puja coordination team if timing, priest assignment, or devotee details are unclear."
+  },
+  {
+    "department": "HR",
+    "title": "Leave Request Review",
+    "steps": [
+      "Check the employee's requested dates, reason, and manager details.",
+      "Verify there is no conflict with coverage or planned business-critical work.",
+      "Confirm the leave balance or policy eligibility if needed.",
+      "Approve or reject the leave with clear manager remarks.",
+      "Record the final manager decision in the Leaves sheet."
+    ],
+    "keywords": ["leave", "absence", "vacation", "manager approval", "hr"],
+    "escalation": "Escalate to HR leadership if there is a policy exception, sensitive case, or repeated conflict."
+  },
+  {
+    "department": "Marketing",
+    "title": "Campaign Launch Readiness",
+    "steps": [
+      "Confirm campaign objective, audience, and launch owner.",
+      "Review creative assets, landing page, and CTA links.",
+      "Get compliance or brand approval before publishing.",
+      "Schedule launch windows and assign monitoring owners.",
+      "Review campaign metrics within the first reporting window."
+    ],
+    "keywords": ["marketing", "campaign", "creative", "landing page", "seo", "launch"],
+    "escalation": "Escalate to the marketing lead if assets are incomplete, links are broken, or approvals are pending."
+  }
+]

@@ -1,105 +1,182 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import UserProfilePanel from "@/components/UserProfilePanel";
+import { 
+  BarChart3, 
+  BookOpen, 
+  Briefcase, 
+  Calendar, 
+  ClipboardList, 
+  GraduationCap, 
+  Home, 
+  LayoutDashboard, 
+  Settings, 
+  Sparkles,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeft,
+  CircleDot,
+  Target
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface NavItem {
   id: string;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   badge?: string;
   section: string;
   adminOnly?: boolean;
+  managerOnly?: boolean;
   path: string;
 }
 
 const navItems: NavItem[] = [
-  { id: "dashboard", icon: "🏠", label: "Dashboard", section: "Main", path: "/dashboard" },
-  { id: "courses", icon: "📚", label: "Courses", badge: "12", section: "Main", path: "/courses" },
-  { id: "training", icon: "🎓", label: "Training Material", section: "Main", path: "/training" },
-  { id: "progress", icon: "📈", label: "My Progress", section: "Main", path: "/progress" },
-  { id: "leaves", icon: "📅", label: "Leave Management", section: "Workplace", path: "/leaves" },
-  { id: "holidays", icon: "🎉", label: "Holiday Calendar", section: "Workplace", path: "/holidays" },
-  { id: "projects", icon: "📋", label: "Projects", section: "Workplace", path: "/projects" },
-  { id: "medical", icon: "🏥", label: "Medical & Insurance", section: "Workplace", path: "/medical" },
-  { id: "ai", icon: "🤖", label: "AI Assistant", section: "AI & Tools", path: "/ai" },
-  { id: "sop", icon: "📄", label: "SOP Library", section: "AI & Tools", path: "/sop" },
-  { id: "admin", icon: "⚙️", label: "Admin Dashboard", section: "Administration", adminOnly: true, path: "/admin" },
+  { id: "dashboard", icon: <Home className="w-[18px] h-[18px]" />, label: "Dashboard", section: "Main", path: "/dashboard" },
+  { id: "courses", icon: <LayoutDashboard className="w-[18px] h-[18px]" />, label: "Strategic Courses", section: "Main", path: "/courses" },
+  { id: "training", icon: <GraduationCap className="w-[18px] h-[18px]" />, label: "Resource Library", section: "Main", path: "/training" },
+  { id: "progress", icon: <BarChart3 className="w-[18px] h-[18px]" />, label: "Performance Analytics", section: "Main", path: "/progress" },
+  { id: "kpi", icon: <Target className="w-[18px] h-[18px]" />, label: "KPI Manager", section: "Main", path: "/kpi" },
+  { id: "career", icon: <Briefcase className="w-[18px] h-[18px]" />, label: "Career Portal", section: "Workspace", path: "/career" },
+  { id: "leaves", icon: <ClipboardList className="w-[18px] h-[18px]" />, label: "Leave Desk", section: "Workspace", path: "/leaves" },
+  { id: "holidays", icon: <Calendar className="w-[18px] h-[18px]" />, label: "Institutional Calendar", section: "Workspace", path: "/holidays" },
+  { id: "monitoring", icon: <Sparkles className="w-[18px] h-[18px]" />, label: "Monitoring Hub", section: "Intelligence", path: "/monitoring" },
+  { id: "ai", icon: <Sparkles className="w-[18px] h-[18px]" />, label: "Naman AI Assistant", section: "Intelligence", path: "/ai" },
+  { id: "sop", icon: <BookOpen className="w-[18px] h-[18px]" />, label: "Operational SOPs", section: "Intelligence", path: "/sop" },
+  { id: "admin", icon: <Settings className="w-[18px] h-[18px]" />, label: "Governance Control", section: "System", adminOnly: true, path: "/admin" },
 ];
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }> = ({ isOpen = false, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const isAdminOrManager = user?.role === "Admin" || user?.role === "Manager";
-
-  const sections = ["Main", "Workplace", "AI & Tools", ...(isAdminOrManager ? ["Administration"] : [])];
-
-  // Get current page based on URL path
+  const sections = ["Main", "Workspace", "Intelligence", ...(isAdminOrManager ? ["System"] : [])];
   const currentPath = location.pathname;
-  const activePage = currentPath.startsWith("/") ? currentPath.substring(1) : "dashboard";
+
+  const initials = user?.name
+    ? user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    : "U";
 
   return (
-    <div className="w-[260px] flex-shrink-0 bg-white border-r border-border overflow-y-auto flex flex-col z-40 fixed top-16 bottom-0 md:static md:top-auto md:bottom-auto">
-      <div className="flex-1 py-4 overflow-y-auto">
-        {sections.map(section => (
-          <div key={section} className="mb-4">
-            <div className="text-[11px] font-bold text-muted-foreground/70 tracking-widest uppercase px-6 mb-2">
-              {section}
-            </div>
-            <div className="px-3 flex flex-col gap-1">
-              {navItems
-                .filter(item => item.section === section && (!item.adminOnly || isAdminOrManager))
-                .map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => navigate(item.path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-[14px] transition-all text-left rounded-xl group ${activePage === item.id
-                        ? "bg-saffron/10 text-saffron font-bold"
-                        : "text-muted-foreground hover:bg-secondary hover:text-foreground font-medium"
-                      }`}
-                  >
-                    <span
-                      className={`text-[16px] w-5 text-center flex-shrink-0 transition-transform duration-200 ${activePage === item.id ? "scale-110" : "group-hover:scale-110 grayscale group-hover:grayscale-0"
-                        }`}
-                    >
-                      {item.icon}
-                    </span>
-                    {item.label}
-                    {item.badge && (
-                      <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-saffron text-primary-foreground font-semibold shadow-sm">
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                ))}
-            </div>
-          </div>
-        ))}
-      </div>
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden backdrop-blur-sm"
+          onClick={onClose}
+        />
+      )}
+      
+      <aside className={`h-screen flex-shrink-0 bg-[#30231D] border-r border-white/5 flex flex-col z-40 fixed top-0 bottom-0 md:static transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) ${isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"} ${isCollapsed ? "w-[88px]" : "w-[260px]"}`}>
 
-      <div className="p-4 mt-auto">
-        <div className="p-3 rounded-2xl bg-secondary/60 border border-border/60 hover:border-border transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="w-[38px] h-[38px] rounded-full bg-gradient-to-br from-saffron to-gold flex items-center justify-center text-[14px] font-bold text-primary-foreground flex-shrink-0 shadow-sm">
-              {user?.initials}
+        {/* Brand Section */}
+        <div className="h-24 flex items-center px-6">
+          {!isCollapsed ? (
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate("/dashboard")}>
+              <div className="w-10 h-10 rounded-xl brand-gradient flex items-center justify-center text-white shadow-xl shadow-orange-500/10 transition-transform duration-500">
+                <CircleDot className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-white tracking-tight text-lg">Naman<span className="text-amber-400">AI</span></span>
+                <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Enterprise LMS</span>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold truncate text-foreground tracking-tight">{user?.name}</div>
-              <div className="text-[12px] font-medium text-muted-foreground truncate">{user?.role}</div>
+          ) : (
+            <div className="w-10 h-10 mx-auto rounded-xl brand-gradient flex items-center justify-center text-white shadow-xl">
+              <CircleDot className="w-5 h-5 stroke-[2.5]" />
             </div>
-            <button
-              onClick={() => {
-                // Logout is handled in Topbar
-              }}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:text-destructive hover:shadow-sm text-muted-foreground transition-all"
-              title="Logout"
-            >
-              <span className="text-sm">🚪</span>
-            </button>
-          </div>
+          )}
         </div>
-      </div>
-    </div>
+
+        {/* Navigation Area */}
+        <nav className="flex-1 py-4 overflow-y-auto scrollbar-none px-4 space-y-8">
+          {sections.map((section) => (
+            <div key={section} className="space-y-2">
+              {!isCollapsed && (
+                <div className="px-3 mb-2">
+                  <span className="text-[10px] font-bold text-white/20 tracking-[0.2em] uppercase">
+                    {section}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-0.5">
+                {navItems
+                  .filter((item) => item.section === section && (!item.adminOnly || isAdminOrManager) && (!item.managerOnly || isAdminOrManager))
+                  .map((item) => {
+                    const isActive = currentPath === item.path || currentPath.startsWith(item.path + "/");
+                    
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          navigate(item.path);
+                          if (onClose) onClose();
+                        }}
+                        className={`
+                          w-full flex items-center gap-3.5 px-3 py-2.5 rounded-xl
+                          transition-all duration-300 text-left group relative
+                          ${isActive
+                            ? "bg-white/5 text-amber-400 shadow-sm"
+                            : "text-white/40 hover:bg-white/[0.03] hover:text-white"
+                          }
+                        `}
+                      >
+                        <div className={`transition-colors duration-300 ${isActive ? "text-amber-400" : "text-white/30 group-hover:text-white"}`}>
+                          {item.icon}
+                        </div>
+
+                        {!isCollapsed && (
+                          <span className={`flex-1 font-medium text-[13px] tracking-tight truncate ${isActive ? "text-white font-semibold" : ""}`}>
+                            {item.label}
+                          </span>
+                        )}
+
+                        {isActive && (
+                          <div className={`absolute left-0 w-1 h-4 bg-amber-400 rounded-r-full transition-all duration-300 ${isCollapsed ? "left-0" : "-left-4"}`} />
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Footer / User Profile Area */}
+        <div className="p-4 border-t border-white/5">
+          {!isCollapsed && (
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all group"
+            >
+              <div className="w-9 h-9 rounded-lg bg-[#3d2e27] flex items-center justify-center font-bold text-white/80 border border-white/10 shadow-lg text-xs overflow-hidden">
+                {(user as any)?.avatar_url ? (
+                  <img src={(user as any).avatar_url} className="w-full h-full object-cover" />
+                ) : initials}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="text-[12px] font-semibold text-white/90 truncate group-hover:text-amber-400 transition-colors">{user?.name}</div>
+                <div className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{user?.role}</div>
+              </div>
+            </button>
+          )}
+
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="mt-4 w-full h-10 flex items-center justify-center rounded-xl text-white/10 hover:text-white/40 hover:bg-white/[0.02] transition-colors"
+          >
+            {isCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
+        </div>
+      </aside>
+
+      <UserProfilePanel open={profileOpen} onClose={() => setProfileOpen(false)} />
+    </>
   );
 };
 

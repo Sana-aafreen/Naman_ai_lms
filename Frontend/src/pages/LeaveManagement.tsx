@@ -1,36 +1,77 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { API_BASE_URL } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { 
+  Calendar as CalendarIcon, 
+  ChevronRight, 
+  Clock, 
+  ShieldCheck, 
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  FileText,
+  Plus,
+  ArrowRight,
+  Info
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Leave {
-  Leave_ID: string;
-  User_ID: string;
-  User_Name: string;
-  Department: string;
-  Leave_Type: string;
-  From_Date: string;
-  To_Date: string;
-  Days: string;
-  Reason: string;
-  Status: string;
-  Requested_Date: string;
-  Approved_By: string;
-  Approval_Date: string;
-  Comments: string;
+  id: number;
+  employee_id: number;
+  employee_name: string;
+  department: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  applied_at: string;
+  approved_by?: string;
+  comments?: string;
 }
 
+interface LeaveMutationResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+}
+
+const statusBadge = (status: string) => {
+  const map: Record<string, string> = {
+    pending: "bg-amber-50 text-amber-600 border-amber-100",
+    approved: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    rejected: "bg-rose-50 text-rose-600 border-rose-100",
+  };
+  return map[status] ?? "bg-slate-50 text-slate-400 border-slate-100";
+};
+
+const statusLabel = (status: string) => {
+  const map: Record<string, string> = {
+    pending: "In Review",
+    approved: "Authorized",
+    rejected: "Declined",
+  };
+  return map[status] ?? status;
+};
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.4, delay, ease: "easeOut" } as const,
+});
+
 const LeaveManagement: React.FC = () => {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { toast } = useToast();
+
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [approvalComment, setApprovalComment] = useState("");
-  const [selectedLeaveId, setSelectedLeaveId] = useState<string | null>(null);
+  const [approvalLeaveId, setApprovalLeaveId] = useState<number | null>(null);
   const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | null>(null);
-
-  // Form state
+  const [approvalComment, setApprovalComment] = useState("");
   const [formData, setFormData] = useState({
     leaveType: "Casual",
     fromDate: "",
@@ -39,46 +80,44 @@ const LeaveManagement: React.FC = () => {
     reason: "",
   });
 
-  // Calculate days when dates change
+  const canApprove = hasRole("Manager", "Admin");
+
   useEffect(() => {
     if (formData.fromDate && formData.toDate) {
-      const from = new Date(formData.fromDate);
-      const to = new Date(formData.toDate);
-      const daysDiff = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      setFormData(prev => ({ ...prev, days: daysDiff > 0 ? daysDiff : 0 }));
+      const diff =
+        Math.ceil(
+          (new Date(formData.toDate).getTime() - new Date(formData.fromDate).getTime()) /
+            86_400_000,
+        ) + 1;
+      setFormData((prev) => ({ ...prev, days: diff > 0 ? diff : 0 }));
     }
   }, [formData.fromDate, formData.toDate]);
 
-  // Fetch leaves on component mount
-  useEffect(() => {
-    fetchLeaves();
-  }, []);
-
-  const fetchLeaves = async () => {
+  const fetchLeaves = React.useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/leaves?userId=${user?.id}&department=${user?.department}&role=${user?.role}`
+      const data = await apiGet<Leave[]>(
+        `/api/leaves?userId=${user?.id ?? ""}&department=${user?.department ?? ""}&role=${user?.role ?? ""}`,
       );
-      const data = await response.json();
       setLeaves(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Error fetching leaves:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load leaves",
-        variant: "destructive",
-      });
+      console.error(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, user?.department, user?.role]);
+
+  useEffect(() => {
+    void fetchLeaves();
+  }, [fetchLeaves]);
 
   const handleSubmitLeave = async () => {
+    if (!user?.id || submitting) return;
+
     if (!formData.leaveType || !formData.fromDate || !formData.toDate || !formData.reason) {
       toast({
-        title: "Missing Fields",
-        description: "Please fill in all fields",
+        title: "Incomplete Request",
+        description: "Please fulfill all required fields before submission.",
         variant: "destructive",
       });
       return;
@@ -86,341 +125,281 @@ const LeaveManagement: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/leaves`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user?.id,
-          userName: user?.name,
-          department: user?.department,
-          leaveType: formData.leaveType,
-          fromDate: formData.fromDate,
-          toDate: formData.toDate,
-          days: formData.days,
-          reason: formData.reason,
-        }),
+      const data = await apiPost<LeaveMutationResponse>("/api/leaves", {
+        employee_id: user.id,
+        leave_type: formData.leaveType,
+        start_date: formData.fromDate,
+        end_date: formData.toDate,
+        reason: formData.reason,
       });
 
-      const data = await response.json();
       if (data.success) {
-        toast({
-          title: "Success",
-          description: "Leave request submitted successfully",
-        });
-        setFormData({
-          leaveType: "Casual",
-          fromDate: "",
-          toDate: "",
-          days: 0,
-          reason: "",
-        });
-        fetchLeaves();
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to submit leave request",
-          variant: "destructive",
-        });
+        toast({ title: "Request Submitted", description: "Leave request has been archived for institutional review." });
+        setFormData({ leaveType: "Casual", fromDate: "", toDate: "", days: 0, reason: "" });
+        void fetchLeaves();
       }
-    } catch (error) {
-      console.error("Error submitting leave:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit leave request",
-        variant: "destructive",
-      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleApprovalAction = async (leaveId: string, action: "approve" | "reject") => {
+  const openApproval = (id: number, action: "approve" | "reject") => {
+    setApprovalLeaveId(id);
+    setApprovalAction(action);
+    setApprovalComment("");
+  };
+
+  const confirmApproval = async () => {
+    if (!approvalLeaveId || !approvalAction) return;
+
     setSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/leaves/${leaveId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          approvedBy: user?.name,
-          comments: approvalComment,
-        }),
+      const data = await apiPatch<LeaveMutationResponse>(`/api/leaves/${approvalLeaveId}`, {
+        action: approvalAction,
+        approvedBy: user?.name,
+        comments: approvalComment,
       });
 
-      const data = await response.json();
       if (data.success) {
-        toast({
-          title: "Success",
-          description: `Leave request ${action === "approve" ? "approved" : "rejected"}`,
-        });
-        setApprovalComment("");
-        setSelectedLeaveId(null);
+        toast({ title: "Directive Processed", description: `Leave request has been ${approvalAction}d.` });
+        setApprovalLeaveId(null);
         setApprovalAction(null);
-        fetchLeaves();
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to update leave status",
-          variant: "destructive",
-        });
+        void fetchLeaves();
       }
-    } catch (error) {
-      console.error("Error updating leave:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update leave status",
-        variant: "destructive",
-      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Approved":
-        return "bg-nd-green-light text-nd-green";
-      case "Rejected":
-        return "bg-red-100 text-red-700";
-      case "Pending":
-        return "bg-gold-light text-gold";
-      default:
-        return "bg-secondary text-muted-foreground";
-    }
-  };
-
-  const isManager = user?.role === "Manager";
-  const pendingCount = leaves.filter(l => l.Status === "Pending").length;
-
   return (
-    <div>
-      <div className="mb-5">
-        <div className="text-[11px] text-muted-foreground mb-2">
-          Home <span className="text-saffron">/ Leave Management</span>
+    <div className="pb-20 max-w-[1280px] mx-auto px-6">
+      <header className="mb-12 pt-6">
+        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.25em] mb-6 flex items-center gap-2">
+          Operations <ChevronRight className="w-3 h-3" /> <span className="text-slate-800 font-black">Resource Availability</span>
         </div>
-        <h1 className="text-xl font-bold mb-1">Leave Management</h1>
-        <p className="text-[13px] text-muted-foreground">
-          {isManager
-            ? `Manage leave requests from your team (${pendingCount} pending)`
-            : "Apply for leaves and track your requests"}
-        </p>
-      </div>
+        <div>
+          <h1 className="text-4xl font-bold text-slate-900 mb-4 tracking-tight">Deployment & Availability</h1>
+          <p className="text-lg text-slate-500 font-medium max-w-2xl leading-relaxed">
+            {hasRole("Admin")
+              ? "Comprehensive organizational oversight of personnel movement and deployment directives."
+              : hasRole("Manager")
+                ? "Departmental oversight and authorization of tactical leave allocations."
+                : "Manage your leave authorizations and track historical deployment data."}
+          </p>
+        </div>
+      </header>
 
-      {!isManager && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 mb-5">
-          {/* Leave Request Form - Only for Employees */}
-          <div className="bg-card border border-border rounded-xl p-[18px]">
-            <div className="text-sm font-semibold mb-3.5">📝 Apply for Leave</div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Leave Type</label>
-                <select
-                  value={formData.leaveType}
-                  onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
-                  className="w-full px-3 py-2 border-[1.5px] border-border rounded-lg text-[13px] bg-card outline-none focus:border-saffron"
-                >
-                  <option>Casual</option>
-                  <option>Sick</option>
-                  <option>Earned</option>
-                  <option>Festival</option>
-                  <option>Emergency</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">From Date</label>
-                <input
-                  type="date"
-                  value={formData.fromDate}
-                  onChange={(e) => setFormData({ ...formData, fromDate: e.target.value })}
-                  className="w-full px-3 py-2 border-[1.5px] border-border rounded-lg text-[13px] bg-card outline-none focus:border-saffron"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">To Date</label>
-                <input
-                  type="date"
-                  value={formData.toDate}
-                  onChange={(e) => setFormData({ ...formData, toDate: e.target.value })}
-                  className="w-full px-3 py-2 border-[1.5px] border-border rounded-lg text-[13px] bg-card outline-none focus:border-saffron"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">No. of Days</label>
-                <input
-                  type="text"
-                  value={formData.days}
-                  readOnly
-                  className="w-full px-3 py-2 border-[1.5px] border-border rounded-lg text-[13px] bg-secondary text-muted-foreground"
-                />
-              </div>
-            </div>
-            <div className="mb-3">
-              <label className="text-xs text-muted-foreground block mb-1">Reason</label>
-              <textarea
-                rows={3}
-                placeholder="Brief reason for leave…"
-                value={formData.reason}
-                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                className="w-full px-3 py-2 border-[1.5px] border-border rounded-lg text-[13px] bg-card outline-none focus:border-saffron resize-y"
-              />
-            </div>
-            <button
-              onClick={handleSubmitLeave}
-              disabled={submitting}
-              className="px-5 py-2 bg-saffron text-primary-foreground rounded-lg text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {submitting ? "Submitting..." : "Submit Leave Request"}
-            </button>
+      <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-10">
+        <motion.div {...fadeUp(0.05)} className="bg-white border border-slate-100 rounded-3xl p-10 relative overflow-hidden h-fit shadow-sm">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50/10 blur-3xl rounded-full" />
+          <div className="flex items-center justify-between mb-10">
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">Request Deployment</h3>
+            <Plus className="w-5 h-5 text-slate-200" />
           </div>
 
-          {/* Leave History/Status */}
-          <div className="bg-card border border-border rounded-xl p-[18px]">
-            <div className="text-sm font-semibold mb-3.5">📊 My Leave Requests</div>
-            {loading ? (
-              <div className="text-center py-4 text-muted-foreground">Loading...</div>
-            ) : leaves.length === 0 ? (
-              <div className="text-center py-4 text-muted-foreground">No leave requests yet</div>
-            ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {leaves.map((leave) => (
-                  <div key={leave.Leave_ID} className="p-2.5 bg-secondary rounded-lg border border-border">
-                    <div className="flex justify-between items-start mb-1">
-                      <div className="font-semibold text-[13px]">{leave.Leave_Type}</div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${getStatusColor(leave.Status)}`}>
-                        {leave.Status}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {leave.From_Date} to {leave.To_Date} ({leave.Days} days)
-                    </div>
-                    {leave.Approved_By && (
-                      <div className="text-[11px] text-muted-foreground mt-1">
-                        Approved by: {leave.Approved_By}
-                      </div>
-                    )}
-                  </div>
+          <div className="space-y-6">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Leave Category</label>
+              <select
+                className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-amber-200 transition-all outline-none appearance-none"
+                value={formData.leaveType}
+                onChange={(e) => setFormData((prev) => ({ ...prev, leaveType: e.target.value }))}
+              >
+                {["Casual", "Sick", "Earned", "Optional"].map((type) => (
+                  <option key={type} value={type}>{type} Leave</option>
                 ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Commence On</label>
+                <input
+                  type="date"
+                  className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-amber-200 transition-all outline-none"
+                  value={formData.fromDate}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, fromDate: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Terminate On</label>
+                <input
+                  type="date"
+                  className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-semibold text-slate-800 focus:bg-white focus:border-amber-200 transition-all outline-none"
+                  value={formData.toDate}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, toDate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {formData.days > 0 && (
+              <div className="flex items-center gap-2.5 p-4 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-600">
+                <Info className="w-4 h-4 text-slate-400" /> Calculated Period: {formData.days} Day{formData.days > 1 ? "s" : ""}
               </div>
             )}
-          </div>
-        </div>
-      )}
 
-      {/* Manager Panel - Pending Leaves to Approve */}
-      {isManager && (
-        <div className="bg-card border border-border rounded-xl p-[18px]">
-          <div className="text-sm font-semibold mb-3.5">✋ Pending Approval Requests</div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Objective / Reason</label>
+              <textarea
+                rows={4}
+                className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 focus:bg-white focus:border-amber-200 transition-all outline-none resize-none"
+                placeholder="Context for your leave request..."
+                value={formData.reason}
+                onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
+              />
+            </div>
+
+            <button
+              disabled={submitting}
+              onClick={handleSubmitLeave}
+              className="enterprise-btn-primary w-full py-4 text-[11px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-none hover:shadow-lg transition-all"
+            >
+              {submitting ? "Transmitting..." : "Submit Request"}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </motion.div>
+
+        <motion.div {...fadeUp(0.1)} className="bg-white border border-slate-100 rounded-3xl p-10 relative overflow-hidden shadow-sm">
+          <div className="flex items-center justify-between mb-10">
+            <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+              {canApprove ? "Personnel Movement Logs" : "Your Leave Archives"}
+            </h3>
+            <FileText className="w-5 h-5 text-slate-200" />
+          </div>
+
           {loading ? (
-            <div className="text-center py-4 text-muted-foreground">Loading...</div>
+            <div className="py-24 flex flex-col items-center gap-6">
+              <div className="w-10 h-10 border-4 border-slate-100 border-t-[#FF7033] rounded-full animate-spin" />
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Loading Logs...</div>
+            </div>
           ) : leaves.length === 0 ? (
-            <div className="text-center py-4 text-muted-foreground">No pending leave requests from your team</div>
+            <div className="py-24 text-center border-2 border-dashed border-slate-50 rounded-3xl bg-slate-50/20">
+              <AlertCircle className="w-10 h-10 text-slate-100 mx-auto mb-4" />
+              <p className="text-[12px] text-slate-400 font-medium italic">No historical movement identified.</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
+              <table className="w-full">
                 <thead>
-                  <tr className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    <th className="text-left p-2.5 bg-secondary rounded-l-md">Employee</th>
-                    <th className="text-left p-2.5 bg-secondary">Leave Type</th>
-                    <th className="text-left p-2.5 bg-secondary">Dates</th>
-                    <th className="text-left p-2.5 bg-secondary">Days</th>
-                    <th className="text-left p-2.5 bg-secondary">Status</th>
-                    <th className="text-left p-2.5 bg-secondary rounded-r-md">Action</th>
+                  <tr className="border-b border-slate-50">
+                    <th className="pb-5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">{canApprove ? "Personnel" : "Category"}</th>
+                    <th className="pb-5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Duration</th>
+                    <th className="pb-5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Objective</th>
+                    <th className="pb-5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest">Authorization</th>
+                    {canApprove && <th className="pb-5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest">Directives</th>}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-50/50">
                   {leaves.map((leave) => (
-                    <tr key={leave.Leave_ID} className="border-b border-border last:border-b-0 hover:bg-secondary/30">
-                      <td className="p-2.5">{leave.User_Name}</td>
-                      <td className="p-2.5">{leave.Leave_Type}</td>
-                      <td className="p-2.5 text-[12px]">
-                        {leave.From_Date} to {leave.To_Date}
+                    <tr key={leave.id} className="group hover:bg-slate-50/50 transition-all">
+                      <td className="py-7">
+                        <div className="font-bold text-[15px] text-slate-800 group-hover:text-amber-600 transition-colors tracking-tight">
+                          {canApprove ? leave.employee_name : `${leave.leave_type} Leave`}
+                        </div>
+                        {canApprove && (
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                            {leave.department} · {leave.leave_type}
+                          </div>
+                        )}
                       </td>
-                      <td className="p-2.5">{leave.Days}</td>
-                      <td className="p-2.5">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${getStatusColor(leave.Status)}`}>
-                          {leave.Status}
-                        </span>
-                      </td>
-                      <td className="p-2.5">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedLeaveId(leave.Leave_ID);
-                              setApprovalAction("approve");
-                            }}
-                            className="px-2 py-1 bg-nd-green-light text-nd-green rounded text-[11px] font-semibold hover:opacity-80 cursor-pointer"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedLeaveId(leave.Leave_ID);
-                              setApprovalAction("reject");
-                            }}
-                            className="px-2 py-1 bg-red-100 text-red-700 rounded text-[11px] font-semibold hover:opacity-80 cursor-pointer"
-                          >
-                            Reject
-                          </button>
+                      <td className="py-7">
+                        <div className="flex items-center gap-2.5 text-[12px] font-bold text-slate-700">
+                           {leave.start_date}
+                        </div>
+                        <div className="flex items-center gap-2.5 text-[10px] text-slate-400 font-bold uppercase mt-1">
+                           To: {leave.end_date}
                         </div>
                       </td>
+                      <td className="py-7 max-w-[200px]">
+                        <p className="text-[13px] font-medium text-slate-500 line-clamp-2">{leave.reason || "Validated objective."}</p>
+                      </td>
+                      <td className="py-7">
+                        <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest shadow-sm ${statusBadge(leave.status)}`}>
+                          {leave.status === 'approved' ? <CheckCircle2 className="w-3.5 h-3.5" /> : leave.status === 'rejected' ? <XCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5 text-amber-500" />}
+                          {statusLabel(leave.status)}
+                        </div>
+                      </td>
+                      {canApprove && (
+                        <td className="py-7 text-right">
+                          {leave.status === "pending" ? (
+                            <div className="flex gap-2.5 justify-end">
+                              <button
+                                onClick={() => openApproval(leave.id, "approve")}
+                                className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                title="Authorize"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => openApproval(leave.id, "reject")}
+                                className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                title="Decline"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                              {leave.approved_by ?? "Institutional System"}
+                            </div>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+        </motion.div>
+      </div>
 
-          {/* Approval Dialog */}
-          {selectedLeaveId && approvalAction && (
-            <div className="mt-4 p-4 bg-secondary rounded-lg border border-border">
-              <div className="mb-3">
-                <p className="font-semibold text-[13px]">
-                  {approvalAction === "approve" ? "Approve" : "Reject"} Leave Request
-                </p>
-                <p className="text-[12px] text-muted-foreground mt-1">
-                  {leaves.find(l => l.Leave_ID === selectedLeaveId)?.User_Name} -{" "}
-                  {leaves.find(l => l.Leave_ID === selectedLeaveId)?.Leave_Type}
-                </p>
+      <AnimatePresence>
+        {approvalLeaveId && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setApprovalLeaveId(null)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.95, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 20, opacity: 0 }} className="bg-white rounded-[2rem] w-full max-w-md p-10 shadow-2xl relative z-10 border border-slate-100">
+              <div className="flex items-center justify-between mb-8">
+                 <h2 className="text-xl font-bold text-slate-900 tracking-tight">{approvalAction === 'approve' ? 'Authorize Directive' : 'Decline Directive'}</h2>
+                 <ShieldCheck className={`w-6 h-6 ${approvalAction === 'approve' ? 'text-emerald-500' : 'text-rose-500'}`} />
               </div>
-              <div className="mb-3">
-                <label className="text-xs font-medium block mb-2">
-                  {approvalAction === "approve" ? "Comments (optional)" : "Reason (required)"}
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder={approvalAction === "approve" ? "Add approval comments…" : "Reason for rejection…"}
-                  value={approvalComment}
-                  onChange={(e) => setApprovalComment(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-[13px] focus:border-saffron outline-none resize-y"
-                />
-              </div>
-              <div className="flex gap-2">
+              
+              <p className="text-[13px] text-slate-500 font-medium mb-8 leading-relaxed">
+                Provide institutional commentary and finalize the operational directive for this movement record.
+              </p>
+              
+              <textarea
+                rows={4}
+                className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-medium text-slate-600 focus:bg-white focus:border-amber-200 transition-all outline-none resize-none mb-8"
+                placeholder="Institutional commentary (optional)..."
+                value={approvalComment}
+                onChange={(e) => setApprovalComment(e.target.value)}
+              />
+              
+              <div className="flex gap-4">
                 <button
-                  onClick={() => {
-                    setSelectedLeaveId(null);
-                    setApprovalAction(null);
-                    setApprovalComment("");
-                  }}
-                  className="px-4 py-1.5 border border-border rounded-lg text-[13px] font-semibold hover:bg-secondary cursor-pointer"
+                  onClick={() => setApprovalLeaveId(null)}
+                  className="flex-1 py-3.5 rounded-xl border border-slate-100 text-slate-400 text-[11px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-all"
                 >
-                  Cancel
+                  Abort
                 </button>
                 <button
-                  onClick={() => handleApprovalAction(selectedLeaveId, approvalAction)}
-                  disabled={submitting || (approvalAction === "reject" && !approvalComment)}
-                  className={`px-4 py-1.5 text-white rounded-lg text-[13px] font-semibold cursor-pointer disabled:opacity-50 ${
+                  disabled={submitting}
+                  onClick={confirmApproval}
+                  className={`flex-[2] py-3.5 rounded-xl text-[11px] font-bold uppercase tracking-widest text-white shadow-xl transition-all active:scale-[0.98] ${
                     approvalAction === "approve"
-                      ? "bg-nd-green hover:bg-nd-green/90"
-                      : "bg-red-600 hover:bg-red-700"
+                      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/10"
+                      : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/10"
                   }`}
                 >
-                  {submitting ? "Processing..." : approvalAction === "approve" ? "Approve" : "Reject"}
+                  {submitting ? "Processing..." : `Confirm ${approvalAction}`}
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Module 3: Service Quality &amp; Pilgrim Experience — NamanDarshan LMS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --saffron:      #F97316;
+  --saffron-dark: #C2410C;
+  --saffron-lite: #FFF7ED;
+  --saffron-mid:  #FDBA74;
+  --cream:        #FFFBF5;
+  --warm-dark:    #1C1917;
+  --warm-mid:     #44403C;
+  --warm-gray:    #78716C;
+  --warm-light:   #F5F0E8;
+  --border:       #E7DDD0;
+  --white:        #FFFFFF;
+  --green:        #16A34A;
+  --green-lite:   #DCFCE7;
+  --red:          #DC2626;
+  --red-lite:     #FEE2E2;
+  --blue:         #2563EB;
+  --blue-lite:    #EFF6FF;
+  --amber:        #F59E0B;
+  --amber-lite:   #FFFBEB;
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:    0 4px 16px rgba(0,0,0,.12);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,.16);
+  --radius:       16px;
+  --radius-sm:    10px;
+  --radius-xs:    6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--cream);
+  color: var(--warm-dark);
+  line-height: 1.75;
+  min-height: 100vh;
+}
+h1,h2,h3,h4,h5 { font-family: 'Yeseva One', serif; line-height: 1.3; }
+a { color: var(--saffron); text-decoration: none; }
+a:hover { text-decoration: underline; }
+p { margin-bottom: 1rem; }
+p:last-child { margin-bottom: 0; }
+ul,ol { padding-left: 1.4rem; }
+li { margin-bottom: .4rem; }
+
+/* NAVBAR */
+.navbar {
+  position: sticky; top: 0; z-index: 200;
+  background: var(--warm-dark);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 60px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+}
+.navbar-brand { display: flex; align-items: center; gap: .75rem; }
+.navbar-logo {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-family: 'Yeseva One',serif; font-size: 17px;
+}
+.navbar-title { font-family:'Yeseva One',serif; font-size:1.05rem; color:white; }
+.navbar-title span { color: var(--saffron-mid); }
+.navbar-links { display:flex; align-items:center; gap:1rem; }
+.navbar-links a {
+  font-size:.82rem; font-weight:700; color:rgba(255,255,255,.65);
+  padding:.35rem .7rem; border-radius:6px; transition:all .15s;
+}
+.navbar-links a:hover, .navbar-links a.active {
+  color:white; background:rgba(255,255,255,.12); text-decoration:none;
+}
+.navbar-badge {
+  font-size:.72rem; font-weight:800; letter-spacing:.06em;
+  padding:.3rem .8rem; border-radius:20px;
+  background:rgba(249,115,22,.18); color:var(--saffron-mid);
+  border:1px solid rgba(249,115,22,.3);
+}
+.progress-strip { height:3px; background:rgba(255,255,255,.1); }
+.progress-fill {
+  height:100%;
+  background:linear-gradient(90deg,var(--saffron),var(--amber));
+  transition:width .5s ease;
+}
+
+/* BUTTONS */
+.btn {
+  display:inline-flex; align-items:center; gap:.4rem;
+  padding:.7rem 1.5rem; border-radius:var(--radius-sm);
+  font-family:'Nunito',sans-serif; font-size:.9rem; font-weight:800;
+  border:none; cursor:pointer; transition:all .18s; text-decoration:none;
+}
+.btn-primary { background:var(--saffron); color:white; }
+.btn-primary:hover { background:var(--saffron-dark); transform:translateY(-1px); box-shadow:var(--shadow-md); text-decoration:none; color:white; }
+.btn-ghost { background:transparent; color:var(--warm-gray); border:1.5px solid var(--border); }
+.btn-ghost:hover { border-color:var(--saffron); color:var(--saffron); text-decoration:none; }
+.btn-dark { background:var(--warm-dark); color:white; }
+.btn-dark:hover { background:#2C2420; transform:translateY(-1px); text-decoration:none; color:white; }
+.btn-green { background:var(--green); color:white; }
+.btn-green:hover { background:#15803D; transform:translateY(-1px); text-decoration:none; color:white; }
+.btn:disabled { opacity:.5; cursor:not-allowed; transform:none !important; }
+
+/* CHIPS */
+.chip {
+  display:inline-flex; align-items:center; gap:.3rem;
+  font-size:.75rem; font-weight:700;
+  padding:.3rem .75rem; border-radius:20px;
+  background:var(--warm-light); color:var(--warm-mid);
+}
+.chip-saffron { background:var(--saffron-lite); color:var(--saffron-dark); }
+.chip-green { background:var(--green-lite); color:var(--green); }
+.chip-blue { background:var(--blue-lite); color:var(--blue); }
+
+/* SECTION CARD */
+.s-card {
+  background:var(--white); border:1px solid var(--border);
+  border-radius:var(--radius); padding:2rem;
+  margin-bottom:1.75rem; box-shadow:var(--shadow-sm);
+}
+.s-card-title {
+  font-size:1.1rem; display:flex; align-items:center; gap:.6rem;
+  padding-bottom:.85rem; margin-bottom:1.25rem;
+  border-bottom:2px solid var(--warm-light);
+}
+.s-card-icon {
+  width:32px; height:32px; border-radius:8px;
+  background:var(--saffron-lite); color:var(--saffron);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1rem; flex-shrink:0;
+}
+
+/* QUIZ */
+.quiz-wrap { background:var(--white); border:2px solid var(--saffron); border-radius:var(--radius); padding:2rem; margin-bottom:1.75rem; }
+.quiz-q { margin-bottom:1.75rem; }
+.quiz-q-label { font-size:.7rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:var(--saffron); margin-bottom:.4rem; }
+.quiz-q-text { font-weight:700; font-size:.975rem; margin-bottom:.85rem; line-height:1.5; color:var(--warm-dark); }
+.quiz-opts { display:flex; flex-direction:column; gap:.5rem; }
+.quiz-opt {
+  display:flex; align-items:center; gap:.75rem;
+  padding:.75rem 1rem; border:1.5px solid var(--border);
+  border-radius:var(--radius-sm); cursor:pointer;
+  font-family:'Nunito',sans-serif; font-size:.9rem;
+  background:white; transition:all .15s; text-align:left;
+}
+.quiz-opt .ol {
+  width:28px; height:28px; border-radius:6px;
+  background:var(--warm-light); color:var(--warm-gray);
+  font-size:.78rem; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:all .15s;
+}
+.quiz-opt:hover { border-color:var(--saffron); background:var(--saffron-lite); }
+.quiz-opt:hover .ol { background:var(--saffron); color:white; }
+.quiz-opt.sel { border-color:var(--saffron); background:var(--saffron-lite); }
+.quiz-opt.sel .ol { background:var(--saffron); color:white; }
+.quiz-opt.correct { border-color:var(--green); background:var(--green-lite); pointer-events:none; }
+.quiz-opt.correct .ol { background:var(--green); color:white; }
+.quiz-opt.wrong { border-color:var(--red); background:var(--red-lite); pointer-events:none; }
+.quiz-opt.wrong .ol { background:var(--red); color:white; }
+.quiz-opt.dis { pointer-events:none; opacity:.65; }
+.quiz-exp { display:none; margin-top:.6rem; padding:.75rem 1rem; background:var(--blue-lite); border-left:3px solid var(--blue); border-radius:0 var(--radius-xs) var(--radius-xs) 0; font-size:.85rem; color:#1D4ED8; line-height:1.55; }
+.quiz-result { text-align:center; padding:2.5rem; border-radius:var(--radius-sm); background:var(--saffron-lite); border:1px solid var(--saffron-mid); display:none; margin-top:1.5rem; }
+.quiz-result .rs { font-size:3.5rem; font-family:'Yeseva One',serif; color:var(--saffron); line-height:1; }
+.quiz-result .rm { color:var(--warm-gray); margin:.5rem 0 1rem; font-size:.95rem; }
+.result-badge { display:inline-block; font-size:.85rem; font-weight:700; padding:.4rem 1.2rem; border-radius:20px; }
+.rb-pass { background:var(--green-lite); color:var(--green); }
+.rb-fail { background:var(--red-lite); color:var(--red); }
+
+@media (max-width:600px) {
+  .navbar { padding:0 1rem; }
+  .navbar-links { display:none; }
+}
+
+.lms-wrap { display:flex; max-width:1200px; margin:0 auto; padding:2rem 1.5rem; gap:2rem; }
+
+/* SIDEBAR */
+.mod-sidebar {
+  width:260px; flex-shrink:0;
+  position:sticky; top:75px; align-self:flex-start;
+  max-height:calc(100vh - 90px); overflow-y:auto;
+}
+.mod-sidebar::-webkit-scrollbar { width:4px; }
+.mod-sidebar::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+.sidebar-section { margin-bottom:1.5rem; }
+.sidebar-label {
+  font-size:.65rem; font-weight:900; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--warm-gray);
+  padding:0 .5rem .6rem; display:block;
+}
+.sidebar-lessons { list-style:none; padding:0; display:flex; flex-direction:column; gap:.2rem; }
+.sidebar-lessons li a {
+  display:flex; align-items:center; gap:.6rem;
+  padding:.55rem .75rem; border-radius:var(--radius-xs);
+  font-size:.82rem; font-weight:700; color:var(--warm-mid);
+  transition:all .15s; text-decoration:none;
+}
+.sidebar-lessons li a:hover { background:var(--saffron-lite); color:var(--saffron); text-decoration:none; }
+.sidebar-lessons li a.done-lesson { color:var(--green); }
+.sidebar-lessons li a.done-lesson .lesson-dot { background:var(--green); }
+.lesson-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--border); flex-shrink:0; transition:background .2s;
+}
+.lesson-num-small {
+  width:20px; height:20px; border-radius:5px;
+  background:var(--warm-light); color:var(--warm-gray);
+  font-size:.68rem; font-weight:900; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.sidebar-mod-nav { display:flex; flex-direction:column; gap:.4rem; }
+.sidebar-mod-nav a {
+  display:flex; align-items:center; gap:.5rem;
+  padding:.55rem .75rem; border-radius:var(--radius-xs);
+  font-size:.82rem; font-weight:700; color:var(--warm-mid);
+  border:1.5px solid var(--border); transition:all .15s; text-decoration:none;
+}
+.sidebar-mod-nav a:hover { border-color:var(--saffron); color:var(--saffron); text-decoration:none; }
+
+/* MAIN */
+.mod-main { flex:1; min-width:0; }
+.mod-header {
+  background:var(--white); border:1px solid var(--border);
+  border-left:5px solid var(--saffron);
+  border-radius:var(--radius); padding:2rem; margin-bottom:1.75rem;
+}
+.mod-header .mbadge {
+  font-size:.7rem; font-weight:900; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--saffron); margin-bottom:.5rem;
+}
+.mod-header h2 { font-size:1.8rem; margin-bottom:.6rem; }
+.mod-chips { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.85rem; }
+
+/* INTRO / WHY BOXES */
+.intro-box {
+  background:linear-gradient(135deg,var(--saffron-lite),#FFF3E0);
+  border:1px solid var(--saffron-mid); border-radius:var(--radius-sm);
+  padding:1.5rem; margin-bottom:1.75rem;
+}
+.intro-box .ilabel {
+  font-size:.68rem; font-weight:900; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--saffron-dark); margin-bottom:.5rem;
+}
+.why-box {
+  background:var(--blue-lite); border:1px solid #BFDBFE;
+  border-radius:var(--radius-sm); padding:1.5rem; margin-bottom:1.75rem;
+}
+.why-box .ilabel { font-size:.68rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--blue); margin-bottom:.5rem; }
+
+/* OBJECTIVES */
+.obj-list { list-style:none; padding:0; display:flex; flex-direction:column; gap:.5rem; }
+.obj-list li {
+  display:flex; align-items:flex-start; gap:.75rem;
+  padding:.6rem .75rem; background:var(--warm-light); border-radius:var(--radius-xs);
+  font-size:.875rem; color:var(--warm-mid);
+}
+.obj-list li::before {
+  content:"◆"; color:var(--saffron); font-size:.6rem;
+  margin-top:.35rem; flex-shrink:0;
+}
+
+/* LESSONS */
+.lesson-card { border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; margin-bottom:1rem; }
+.lesson-hdr {
+  padding:1rem 1.25rem; background:var(--warm-light);
+  display:flex; align-items:center; justify-content:space-between;
+  cursor:pointer; user-select:none;
+}
+.lesson-hdr h4 { display:flex; align-items:center; gap:.6rem; font-size:.95rem; }
+.lesson-num-badge {
+  width:28px; height:28px; border-radius:7px;
+  background:var(--saffron); color:white;
+  font-size:.8rem; font-weight:900;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.lesson-done-badge {
+  width:28px; height:28px; border-radius:7px;
+  background:var(--green-lite); color:var(--green);
+  font-size:.85rem; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; display:none;
+}
+.lesson-tog { color:var(--warm-gray); font-size:1.1rem; transition:transform .2s; flex-shrink:0; }
+.lesson-body { padding:1.5rem; border-top:1px solid var(--border); display:none; }
+.lesson-body.open { display:block; }
+.lesson-prose { color:var(--warm-mid); line-height:1.85; margin-bottom:1.25rem; }
+.lesson-prose p { margin-bottom:1rem; }
+.lesson-example {
+  background:var(--saffron-lite); border-left:4px solid var(--saffron);
+  border-radius:0 var(--radius-xs) var(--radius-xs) 0;
+  padding:1.1rem 1.25rem; margin-bottom:1.25rem;
+}
+.lesson-example .ex-label {
+  font-size:.68rem; font-weight:900; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--saffron-dark); margin-bottom:.4rem;
+}
+.pro-tip-box {
+  background:var(--amber-lite); border:1px solid #FDE68A;
+  border-radius:var(--radius-xs); padding:1rem 1.25rem; margin-bottom:1.25rem;
+  display:flex; align-items:flex-start; gap:.75rem;
+}
+.pro-tip-box .pt-icon { font-size:1.25rem; flex-shrink:0; margin-top:.1rem; }
+.pro-tip-box p { font-size:.875rem; color:#92400E; margin:0; }
+.kp-list { list-style:none; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:.4rem; }
+.kp-list li {
+  font-size:.85rem; color:var(--warm-mid);
+  padding:.4rem .6rem .4rem 1.5rem; position:relative;
+  background:var(--warm-light); border-radius:var(--radius-xs);
+}
+.kp-list li::before { content:"✦"; position:absolute; left:.5rem; color:var(--saffron); font-size:.7rem; top:.5rem; }
+.mark-read-btn {
+  margin-top:1rem; padding:.55rem 1.25rem;
+  border-radius:20px; border:1.5px solid var(--green);
+  background:transparent; color:var(--green);
+  font-family:'Nunito',sans-serif; font-size:.82rem; font-weight:800;
+  cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:.4rem;
+}
+.mark-read-btn:hover { background:var(--green-lite); }
+.mark-read-btn.done { background:var(--green-lite); cursor:default; border-color:var(--green); }
+
+/* CASE STUDY */
+.case-study {
+  background:linear-gradient(135deg, #1C1917, #3C2A1A);
+  border-radius:var(--radius-sm); padding:1.75rem; color:white; margin-bottom:1.5rem;
+}
+.case-study .cs-label { font-size:.68rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--saffron-mid); margin-bottom:.5rem; }
+.case-study h4 { color:white; font-size:1rem; margin-bottom:.85rem; }
+.case-study .cs-scenario { color:rgba(255,255,255,.75); font-size:.9rem; line-height:1.8; margin-bottom:1rem; }
+.case-study .cs-outcome {
+  background:rgba(249,115,22,.15); border-left:3px solid var(--saffron);
+  padding:1rem 1.25rem; border-radius:0 var(--radius-xs) var(--radius-xs) 0;
+  color:rgba(255,255,255,.9); font-size:.875rem;
+}
+.case-study .cs-outcome-label { font-size:.68rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:var(--saffron-mid); margin-bottom:.35rem; }
+
+/* DO / DONT */
+.do-dont { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; }
+.do-box { background:var(--green-lite); border:1px solid #BBF7D0; border-radius:var(--radius-sm); padding:1.25rem; }
+.dont-box { background:var(--red-lite); border:1px solid #FECACA; border-radius:var(--radius-sm); padding:1.25rem; }
+.do-box h4 { color:var(--green); font-size:.875rem; margin-bottom:.85rem; }
+.dont-box h4 { color:var(--red); font-size:.875rem; margin-bottom:.85rem; }
+.do-box li, .dont-box li { font-size:.855rem; position:relative; padding-left:1.4rem; margin-bottom:.4rem; list-style:none; }
+.do-box li::before { content:"✔"; position:absolute; left:0; color:var(--green); }
+.dont-box li::before { content:"✘"; position:absolute; left:0; color:var(--red); }
+
+/* KNOWLEDGE CHECK */
+.kc-card {
+  background:var(--saffron-lite); border:1px solid var(--saffron-mid);
+  border-radius:var(--radius-xs); padding:1.15rem; margin-bottom:.75rem;
+}
+.kc-q { font-weight:700; font-size:.9rem; margin-bottom:.5rem; }
+.kc-a {
+  font-size:.875rem; color:var(--warm-mid); padding:.65rem .9rem;
+  background:white; border-radius:6px; border:1px solid var(--border);
+  display:none; line-height:1.6;
+}
+.kc-toggle {
+  margin-top:.6rem; font-size:.78rem; font-weight:800;
+  padding:.3rem .75rem; border-radius:6px;
+  border:1px solid var(--saffron); background:transparent;
+  color:var(--saffron); cursor:pointer; font-family:'Nunito',sans-serif;
+  transition:all .15s;
+}
+.kc-toggle:hover { background:var(--saffron); color:white; }
+
+/* SUMMARY */
+.summary-box {
+  background:linear-gradient(135deg,#1C1917,#3C2A1A);
+  border-radius:var(--radius-sm); padding:1.75rem; color:white; margin-bottom:1.75rem;
+}
+.summary-box .sl { font-size:.68rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--saffron-mid); margin-bottom:.5rem; }
+.summary-box p { color:rgba(255,255,255,.8); margin:0; line-height:1.8; }
+
+/* LESSON PROGRESS BAR */
+.lesson-bar-wrap { height:6px; background:var(--warm-light); border-radius:3px; margin-bottom:1.5rem; overflow:hidden; }
+.lesson-bar-fill { height:100%; background:linear-gradient(90deg,var(--green),#22C55E); transition:width .4s; }
+.lesson-bar-label { font-size:.75rem; font-weight:700; color:var(--warm-gray); margin-bottom:.4rem; }
+
+/* COMPLETION BANNER */
+.completion-banner {
+  display:none; background:linear-gradient(135deg,var(--green),#15803D);
+  border-radius:var(--radius); padding:2rem; text-align:center; color:white; margin-bottom:1.75rem;
+}
+.completion-banner h3 { color:white; font-size:1.5rem; margin-bottom:.5rem; }
+.completion-banner p { color:rgba(255,255,255,.75); margin-bottom:1.25rem; }
+.completion-banner .cb-btns { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+
+/* MODULE NAV */
+.mod-nav-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:1.5rem 0; border-top:1px solid var(--border); margin-top:1rem;
+}
+
+@media (max-width:900px) {
+  .lms-wrap { flex-direction:column; padding:1rem; }
+  .mod-sidebar { width:100%; position:static; max-height:none; }
+  .sidebar-lessons { flex-direction:row; flex-wrap:wrap; }
+  .do-dont { grid-template-columns:1fr; }
+  .kp-list { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-brand">
+    <div class="navbar-logo">ॐ</div>
+    <span class="navbar-title">Naman<span>LMS</span></span>
+  </div>
+  <div class="navbar-links">
+    <a href="./sales-index-20260409080524.html">← Course Home</a>
+    <a href="./sales-final-exam-20260409080524.html">Final Exam</a>
+  </div>
+  <span class="navbar-badge">Module 3/5</span>
+</nav>
+
+<div class="progress-strip">
+  <div class="progress-fill" id="lesson-prog-bar" style="width:0%"></div>
+</div>
+
+<div class="lms-wrap">
+
+  <!-- SIDEBAR -->
+  <aside class="mod-sidebar">
+    <div class="sidebar-section">
+  <span class="sidebar-label">In This Module</span>
+  <ul class="sidebar-lessons"><li>
+  <a href="#" onclick="toggleLesson('m3l0');return false;" data-lid="m3l0">
+    <span class="lesson-num-small">1</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Quality standards at NamanDarshan</span>
+    <span class="lesson-dot"></span>
+  </a>
+</li><li>
+  <a href="#" onclick="toggleLesson('m3l1');return false;" data-lid="m3l1">
+    <span class="lesson-num-small">2</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Understanding pilgrim expectations</span>
+    <span class="lesson-dot"></span>
+  </a>
+</li><li>
+  <a href="#" onclick="toggleLesson('m3l2');return false;" data-lid="m3l2">
+    <span class="lesson-num-small">3</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Effective internal and external communication</span>
+    <span class="lesson-dot"></span>
+  </a>
+</li><li>
+  <a href="#" onclick="toggleLesson('m3l3');return false;" data-lid="m3l3">
+    <span class="lesson-num-small">4</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Feedback loops and continuous improvement</span>
+    <span class="lesson-dot"></span>
+  </a>
+</li><li>
+  <a href="#" onclick="toggleLesson('m3l4');return false;" data-lid="m3l4">
+    <span class="lesson-num-small">5</span>
+    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Handling complaints and service recovery</span>
+    <span class="lesson-dot"></span>
+  </a>
+</li></ul>
+</div>
+<div class="sidebar-section">
+  <span class="sidebar-label">Navigate</span>
+  <div class="sidebar-mod-nav"><a href="./sales-index-20260409080524.html">🏠 Course Home</a>
+<a href="./sales-module-02-20260409080524.html">← Previous Module</a>
+<a href="./sales-module-04-20260409080524.html">Next Module →</a>
+</div>
+</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="mod-main">
+
+    <!-- MODULE HEADER -->
+    <div class="mod-header">
+      <div class="mbadge">Module 3 of 5 · Sales</div>
+      <h2>Service Quality &amp; Pilgrim Experience</h2>
+      <div class="mod-chips">
+        <span class="chip">⏱ 75 min</span>
+        <span class="chip">📖 5 lessons</span>
+        <span class="chip">🧪 8 quiz questions</span>
+      </div>
+    </div>
+
+    <!-- LESSON PROGRESS -->
+    <div class="s-card" style="padding:1.25rem 1.5rem;">
+      <div class="lesson-bar-label">Lesson Progress — <span id="lprog-label">0 of 5 read</span></div>
+      <div class="lesson-bar-wrap"><div class="lesson-bar-fill" id="lesson-fill" style="width:0%"></div></div>
+    </div>
+
+    <!-- INTRODUCTION -->
+    <div class="intro-box"><div class="ilabel">Module Introduction</div><p>Welcome to &#39;Service Quality &amp; Pilgrim Experience&#39;, Module 3 of your Sales Learning Path at NamanDarshan. This module has been carefully designed to build the knowledge and practical skills you need to operate with confidence in your role. The content draws directly from NamanDarshan&#39;s service portfolio — VIP Darshan, Yatra packages, Online Puja, Prasad delivery, and Temple bookings — so every concept you study maps directly to situations you will encounter at your desk.</p><p>Work through each lesson at your own pace. Pay special attention to the real-world examples and pro tips: these are drawn from actual scenarios the Sales team has faced. The module ends with a short assessment quiz — you need 70% to pass, but treat it as a learning opportunity, not just a test. Your score is automatically recorded in the NamanDarshan Growth Report, supporting your performance review and career development.</p></div>
+
+    <!-- WHY IT MATTERS -->
+    <div class="why-box"><div class="ilabel">💡 Why This Matters</div><p>The Sales department sits at the heart of NamanDarshan&#39;s promise to pilgrims. When your team operates at its best — following SOPs precisely, communicating proactively, and resolving issues before they escalate — devotees experience the seamless service they trusted NamanDarshan to deliver. Every task you complete well is a direct contribution to that experience. This module gives you the grounding to make that contribution consistently.</p></div>
+
+    <!-- LEARNING OBJECTIVES -->
+    <div class="s-card"><h3 class="s-card-title"><span class="s-card-icon">🎯</span>Learning Objectives</h3><ul class="obj-list"><li>Understand the scope and purpose of Service Quality &amp; Pilgrim Experience within Sales operations</li><li>Apply SOP-backed steps accurately in real work scenarios</li><li>Document all actions with full auditability</li><li>Identify escalation triggers and respond via the correct path</li><li>Evaluate your own performance and contribute to SOP improvement</li><li>Demonstrate empathy and professionalism in all Sales tasks</li></ul></div>
+
+    <!-- LESSONS -->
+    <div class="s-card">
+      <h3 class="s-card-title"><span class="s-card-icon">📖</span>Lessons</h3>
+      <div class="lesson-card" id="lesson-m3l0">
+  <div class="lesson-hdr" onclick="toggleLesson('m3l0')">
+    <h4>
+      <span class="lesson-num-badge">1</span>
+      Quality standards at NamanDarshan
+    </h4>
+    <span class="lesson-tog" id="ltog-m3l0">▾</span>
+  </div>
+  <div class="lesson-body" id="lbody-m3l0">
+    <div class="lesson-prose"><p>Understanding quality standards at namandarshan is essential for every Sales team member at NamanDarshan. This topic sits at the intersection of operational excellence and the platform&#39;s mission: making sacred pilgrimage experiences seamless and accessible for millions of devotees across India. Without a deep grasp of quality standards at namandarshan, even well-intentioned team members can create friction in what should be a smooth spiritual journey.</p><p>In practice, applying quality standards at namandarshan means following a structured approach. Begin by reviewing the relevant SOP document — not from memory, but fresh each time — then execute each step with care, logging actions as you go. This creates an auditable record that managers can review and that protects the team if questions arise later. Thoroughness here is never wasted; the few extra seconds spent documenting correctly can save hours of back-and-forth during reviews.</p><p>The NamanDarshan context adds specific demands. Pilgrimage services are time-sensitive and emotionally significant for customers. A booking error on a VIP Darshan slot, for instance, can disrupt a family&#39;s once-in-a-lifetime trip. This means that quality standards at namandarshan must be executed not just accurately but promptly, with empathy for what each service means to the person on the other side of the transaction.</p><p>Build proficiency through deliberate practice. Each time you complete a quality standards at namandarshan task, pause briefly to evaluate: did you follow the SOP exactly? Was documentation complete? Did any step create confusion that suggests the SOP needs improvement? Share these observations in team check-ins. The cumulative effect of small improvements, made consistently, is what separates a good team from an exceptional one.</p><p>Finally, remember that expertise in quality standards at namandarshan earns trust. When managers and colleagues know you will handle this area reliably, they can delegate with confidence, creating space for you to take on higher-responsibility work and accelerate your growth within the Sales department at NamanDarshan.</p></div>
+    <div class="lesson-example"><div class="ex-label">📌 Real-World Example</div>During the Char Dham Yatra season, the Sales team received a surge of requests involving quality standards at namandarshan. One team member had recently completed refresher training on this exact topic. Rather than improvising, they opened the SOP, worked through each step methodically, and documented every action with a timestamp. When a query arose the following day about how a particular case had been handled, the complete audit trail meant the review was resolved in minutes rather than hours — and the pilgrim received a personalised follow-up that turned a potential complaint into a five-star review.</div>
+    <div class="pro-tip-box"><span class="pt-icon">💡</span><p><strong>Pro Tip:</strong> If you find yourself unsure during a quality standards at namandarshan task, treat that uncertainty as a signal — stop, re-read the SOP section, and escalate if the SOP doesn&#39;t cover the scenario. Improvising without documentation creates downstream risk.</p></div>
+    <ul class="kp-list"><li>Always consult the SOP before executing quality standards at namandarshan tasks</li><li>Document every action with timestamps for full auditability</li><li>Escalate outside-scope situations via the defined escalation path</li><li>Empathy for pilgrim context elevates service quality</li><li>Share edge-case learnings to improve SOPs over time</li><li>Consistent accuracy builds trust and career opportunity</li></ul>
+    <button class="mark-read-btn" id="read-btn-m3l0" onclick="markLessonRead('m3l0')">
+      Mark as Read ✓
+    </button>
+  </div>
+</div>
+<div class="lesson-card" id="lesson-m3l1">
+  <div class="lesson-hdr" onclick="toggleLesson('m3l1')">
+    <h4>
+      <span class="lesson-num-badge">2</span>
+      Understanding pilgrim expectations
+    </h4>
+    <span class="lesson-tog" id="ltog-m3l1">▾</span>
+  </div>
+  <div class="lesson-body" id="lbody-m3l1">
+    <div class="lesson-prose"><p>Understanding understanding pilgrim expectations is essential for every Sales team member at NamanDarshan. This topic sits at the intersection of operational excellence and the platform&#39;s mission: making sacred pilgrimage experiences seamless and accessible for millions of devotees across India. Without a deep grasp of understanding pilgrim expectations, even well-intentioned team members can create friction in what should be a smooth spiritual journey.</p><p>In practice, applying understanding pilgrim expectations means following a structured approach. Begin by reviewing the relevant SOP document — not from memory, but fresh each time — then execute each step with care, logging actions as you go. This creates an auditable record that managers can review and that protects the team if questions arise later. Thoroughness here is never wasted; the few extra seconds spent documenting correctly can save hours of back-and-forth during reviews.</p><p>The NamanDarshan context adds specific demands. Pilgrimage services are time-sensitive and emotionally significant for customers. A booking error on a VIP Darshan slot, for instance, can disrupt a family&#39;s once-in-a-lifetime trip. This means that understanding pilgrim expectations must be executed not just accurately but promptly, with empathy for what each service means to the person on the other side of the transaction.</p><p>Build proficiency through deliberate practice. Each time you complete a understanding pilgrim expectations task, pause briefly to evaluate: did you follow the SOP exactly? Was documentation complete? Did any step create confusion that suggests the SOP needs improvement? Share these observations in team check-ins. The cumulative effect of small improvements, made consistently, is what separates a good team from an exceptional one.</p><p>Finally, remember that expertise in understanding pilgrim expectations earns trust. When managers and colleagues know you will handle this area reliably, they can delegate with confidence, creating space for you to take on higher-responsibility work and accelerate your growth within the Sales department at NamanDarshan.</p></div>
+    <div class="lesson-example"><div class="ex-label">📌 Real-World Example</div>During the Char Dham Yatra season, the Sales team received a surge of requests involving understanding pilgrim expectations. One team member had recently completed refresher training on this exact topic. Rather than improvising, they opened the SOP, worked through each step methodically, and documented every action with a timestamp. When a query arose the following day about how a particular case had been handled, the complete audit trail meant the review was resolved in minutes rather than hours — and the pilgrim received a personalised follow-up that turned a potential complaint into a five-star review.</div>
+    <div class="pro-tip-box"><span class="pt-icon">💡</span><p><strong>Pro Tip:</strong> If you find yourself unsure during a understanding pilgrim expectations task, treat that uncertainty as a signal — stop, re-read the SOP section, and escalate if the SOP doesn&#39;t cover the scenario. Improvising without documentation creates downstream risk.</p></div>
+    <ul class="kp-list"><li>Always consult the SOP before executing understanding pilgrim expectations tasks</li><li>Document every action with timestamps for full auditability</li><li>Escalate outside-scope situations via the defined escalation path</li><li>Empathy for pilgrim context elevates service quality</li><li>Share edge-case learnings to improve SOPs over time</li><li>Consistent accuracy builds trust and career opportunity</li></ul>
+    <button class="mark-read-btn" id="read-btn-m3l1" onclick="markLessonRead('m3l1')">
+      Mark as Read ✓
+    </button>
+  </div>
+</div>
+<div class="lesson-card" id="lesson-m3l2">
+  <div class="lesson-hdr" onclick="toggleLesson('m3l2')">
+    <h4>
+      <span class="lesson-num-badge">3</span>
+      Effective internal and external communication
+    </h4>
+    <span class="lesson-tog" id="ltog-m3l2">▾</span>
+  </div>
+  <div class="lesson-body" id="lbody-m3l2">
+    <div class="lesson-prose"><p>Understanding effective internal and external communication is essential for every Sales team member at NamanDarshan. This topic sits at the intersection of operational excellence and the platform&#39;s mission: making sacred pilgrimage experiences seamless and accessible for millions of devotees across India. Without a deep grasp of effective internal and external communication, even well-intentioned team members can create friction in what should be a smooth spiritual journey.</p><p>In practice, applying effective internal and external communication means following a structured approach. Begin by reviewing the relevant SOP document — not from memory, but fresh each time — then execute each step with care, logging actions as you go. This creates an auditable record that managers can review and that protects the team if questions arise later. Thoroughness here is never wasted; the few extra seconds spent documenting correctly can save hours of back-and-forth during reviews.</p><p>The NamanDarshan context adds specific demands. Pilgrimage services are time-sensitive and emotionally significant for customers. A booking error on a VIP Darshan slot, for instance, can disrupt a family&#39;s once-in-a-lifetime trip. This means that effective internal and external communication must be executed not just accurately but promptly, with empathy for what each service means to the person on the other side of the transaction.</p><p>Build proficiency through deliberate practice. Each time you complete a effective internal and external communication task, pause briefly to evaluate: did you follow the SOP exactly? Was documentation complete? Did any step create confusion that suggests the SOP needs improvement? Share these observations in team check-ins. The cumulative effect of small improvements, made consistently, is what separates a good team from an exceptional one.</p><p>Finally, remember that expertise in effective internal and external communication earns trust. When managers and colleagues know you will handle this area reliably, they can delegate with confidence, creating space for you to take on higher-responsibility work and accelerate your growth within the Sales department at NamanDarshan.</p></div>
+    <div class="lesson-example"><div class="ex-label">📌 Real-World Example</div>During the Char Dham Yatra season, the Sales team received a surge of requests involving effective internal and external communication. One team member had recently completed refresher training on this exact topic. Rather than improvising, they opened the SOP, worked through each step methodically, and documented every action with a timestamp. When a query arose the following day about how a particular case had been handled, the complete audit trail meant the review was resolved in minutes rather than hours — and the pilgrim received a personalised follow-up that turned a potential complaint into a five-star review.</div>
+    <div class="pro-tip-box"><span class="pt-icon">💡</span><p><strong>Pro Tip:</strong> If you find yourself unsure during a effective internal and external communication task, treat that uncertainty as a signal — stop, re-read the SOP section, and escalate if the SOP doesn&#39;t cover the scenario. Improvising without documentation creates downstream risk.</p></div>
+    <ul class="kp-list"><li>Always consult the SOP before executing effective internal and external communication tasks</li><li>Document every action with timestamps for full auditability</li><li>Escalate outside-scope situations via the defined escalation path</li><li>Empathy for pilgrim context elevates service quality</li><li>Share edge-case learnings to improve SOPs over time</li><li>Consistent accuracy builds trust and career opportunity</li></ul>
+    <button class="mark-read-btn" id="read-btn-m3l2" onclick="markLessonRead('m3l2')">
+      Mark as Read ✓
+    </button>
+  </div>
+</div>
+<div class="lesson-card" id="lesson-m3l3">
+  <div class="lesson-hdr" onclick="toggleLesson('m3l3')">
+    <h4>
+      <span class="lesson-num-badge">4</span>
+      Feedback loops and continuous improvement
+    </h4>
+    <span class="lesson-tog" id="ltog-m3l3">▾</span>
+  </div>
+  <div class="lesson-body" id="lbody-m3l3">
+    <div class="lesson-prose"><p>Understanding feedback loops and continuous improvement is essential for every Sales team member at NamanDarshan. This topic sits at the intersection of operational excellence and the platform&#39;s mission: making sacred pilgrimage experiences seamless and accessible for millions of devotees across India. Without a deep grasp of feedback loops and continuous improvement, even well-intentioned team members can create friction in what should be a smooth spiritual journey.</p><p>In practice, applying feedback loops and continuous improvement means following a structured approach. Begin by reviewing the relevant SOP document — not from memory, but fresh each time — then execute each step with care, logging actions as you go. This creates an auditable record that managers can review and that protects the team if questions arise later. Thoroughness here is never wasted; the few extra seconds spent documenting correctly can save hours of back-and-forth during reviews.</p><p>The NamanDarshan context adds specific demands. Pilgrimage services are time-sensitive and emotionally significant for customers. A booking error on a VIP Darshan slot, for instance, can disrupt a family&#39;s once-in-a-lifetime trip. This means that feedback loops and continuous improvement must be executed not just accurately but promptly, with empathy for what each service means to the person on the other side of the transaction.</p><p>Build proficiency through deliberate practice. Each time you complete a feedback loops and continuous improvement task, pause briefly to evaluate: did you follow the SOP exactly? Was documentation complete? Did any step create confusion that suggests the SOP needs improvement? Share these observations in team check-ins. The cumulative effect of small improvements, made consistently, is what separates a good team from an exceptional one.</p><p>Finally, remember that expertise in feedback loops and continuous improvement earns trust. When managers and colleagues know you will handle this area reliably, they can delegate with confidence, creating space for you to take on higher-responsibility work and accelerate your growth within the Sales department at NamanDarshan.</p></div>
+    <div class="lesson-example"><div class="ex-label">📌 Real-World Example</div>During the Char Dham Yatra season, the Sales team received a surge of requests involving feedback loops and continuous improvement. One team member had recently completed refresher training on this exact topic. Rather than improvising, they opened the SOP, worked through each step methodically, and documented every action with a timestamp. When a query arose the following day about how a particular case had been handled, the complete audit trail meant the review was resolved in minutes rather than hours — and the pilgrim received a personalised follow-up that turned a potential complaint into a five-star review.</div>
+    <div class="pro-tip-box"><span class="pt-icon">💡</span><p><strong>Pro Tip:</strong> If you find yourself unsure during a feedback loops and continuous improvement task, treat that uncertainty as a signal — stop, re-read the SOP section, and escalate if the SOP doesn&#39;t cover the scenario. Improvising without documentation creates downstream risk.</p></div>
+    <ul class="kp-list"><li>Always consult the SOP before executing feedback loops and continuous improvement tasks</li><li>Document every action with timestamps for full auditability</li><li>Escalate outside-scope situations via the defined escalation path</li><li>Empathy for pilgrim context elevates service quality</li><li>Share edge-case learnings to improve SOPs over time</li><li>Consistent accuracy builds trust and career opportunity</li></ul>
+    <button class="mark-read-btn" id="read-btn-m3l3" onclick="markLessonRead('m3l3')">
+      Mark as Read ✓
+    </button>
+  </div>
+</div>
+<div class="lesson-card" id="lesson-m3l4">
+  <div class="lesson-hdr" onclick="toggleLesson('m3l4')">
+    <h4>
+      <span class="lesson-num-badge">5</span>
+      Handling complaints and service recovery
+    </h4>
+    <span class="lesson-tog" id="ltog-m3l4">▾</span>
+  </div>
+  <div class="lesson-body" id="lbody-m3l4">
+    <div class="lesson-prose"><p>Understanding handling complaints and service recovery is essential for every Sales team member at NamanDarshan. This topic sits at the intersection of operational excellence and the platform&#39;s mission: making sacred pilgrimage experiences seamless and accessible for millions of devotees across India. Without a deep grasp of handling complaints and service recovery, even well-intentioned team members can create friction in what should be a smooth spiritual journey.</p><p>In practice, applying handling complaints and service recovery means following a structured approach. Begin by reviewing the relevant SOP document — not from memory, but fresh each time — then execute each step with care, logging actions as you go. This creates an auditable record that managers can review and that protects the team if questions arise later. Thoroughness here is never wasted; the few extra seconds spent documenting correctly can save hours of back-and-forth during reviews.</p><p>The NamanDarshan context adds specific demands. Pilgrimage services are time-sensitive and emotionally significant for customers. A booking error on a VIP Darshan slot, for instance, can disrupt a family&#39;s once-in-a-lifetime trip. This means that handling complaints and service recovery must be executed not just accurately but promptly, with empathy for what each service means to the person on the other side of the transaction.</p><p>Build proficiency through deliberate practice. Each time you complete a handling complaints and service recovery task, pause briefly to evaluate: did you follow the SOP exactly? Was documentation complete? Did any step create confusion that suggests the SOP needs improvement? Share these observations in team check-ins. The cumulative effect of small improvements, made consistently, is what separates a good team from an exceptional one.</p><p>Finally, remember that expertise in handling complaints and service recovery earns trust. When managers and colleagues know you will handle this area reliably, they can delegate with confidence, creating space for you to take on higher-responsibility work and accelerate your growth within the Sales department at NamanDarshan.</p></div>
+    <div class="lesson-example"><div class="ex-label">📌 Real-World Example</div>During the Char Dham Yatra season, the Sales team received a surge of requests involving handling complaints and service recovery. One team member had recently completed refresher training on this exact topic. Rather than improvising, they opened the SOP, worked through each step methodically, and documented every action with a timestamp. When a query arose the following day about how a particular case had been handled, the complete audit trail meant the review was resolved in minutes rather than hours — and the pilgrim received a personalised follow-up that turned a potential complaint into a five-star review.</div>
+    <div class="pro-tip-box"><span class="pt-icon">💡</span><p><strong>Pro Tip:</strong> If you find yourself unsure during a handling complaints and service recovery task, treat that uncertainty as a signal — stop, re-read the SOP section, and escalate if the SOP doesn&#39;t cover the scenario. Improvising without documentation creates downstream risk.</p></div>
+    <ul class="kp-list"><li>Always consult the SOP before executing handling complaints and service recovery tasks</li><li>Document every action with timestamps for full auditability</li><li>Escalate outside-scope situations via the defined escalation path</li><li>Empathy for pilgrim context elevates service quality</li><li>Share edge-case learnings to improve SOPs over time</li><li>Consistent accuracy builds trust and career opportunity</li></ul>
+    <button class="mark-read-btn" id="read-btn-m3l4" onclick="markLessonRead('m3l4')">
+      Mark as Read ✓
+    </button>
+  </div>
+</div>
+    </div>
+
+    <!-- CASE STUDY -->
+    <div class="s-card">
+  <h3 class="s-card-title"><span class="s-card-icon">📂</span>Case Study</h3>
+  <div class="case-study">
+    <div class="cs-label">Case Study</div>
+    <h4>Festival Season Surge: Sales Under Pressure</h4>
+    <div class="cs-scenario"><p>During the Navratri festival peak, the Sales team at NamanDarshan handled a 340% increase in service requests over a 72-hour window. Two team members had recently completed their Service Quality &amp; Pilgrim Experience module training; two had not yet started. The difference in performance was immediately visible. The trained members worked through the surge methodically, following SOPs without cutting corners, logging every action, and escalating three edge cases that the untrained members had attempted to resolve independently — one of which, had it not been caught, would have caused a double-booking for a VIP Darshan slot on the most auspicious day of the festival.</p><p>The team lead documented the outcomes at the end of the surge period. Average resolution time for the trained members was 28% faster. Error rate was 0% versus 4.2% for the untrained group. Most importantly, pilgrim satisfaction scores for transactions handled by trained members averaged 4.8/5 compared to 3.9/5 for the others — a gap entirely explained by process discipline and communication quality, not effort or intent.</p></div>
+    <div class="cs-outcome">
+      <div class="cs-outcome-label">Outcome &amp; Learning</div>
+      <p>The case made a compelling argument for making Service Quality &amp; Pilgrim Experience training mandatory before staff handle live requests during peak periods. The two undertrained members completed the module within the following week and reported that the SOP framework immediately reduced their cognitive load — they spent less mental energy improvising and more on delivering quality service. Lesson: structured knowledge directly translates to measurable performance.</p>
+    </div>
+  </div>
+</div>
+
+    <!-- DO / DONT -->
+    <div class="s-card"><h3 class="s-card-title"><span class="s-card-icon">✅</span>Do&#39;s &amp; Don&#39;ts</h3><div class="do-dont">
+  <div class="do-box"><h4>✔ Best Practices (DO)</h4><ul><li>Review the relevant SOP every time — never rely on memory alone</li><li>Document actions with timestamps, outcomes, and decision rationale</li><li>Escalate promptly via the defined escalation path when out of scope</li><li>Complete the module quiz — your score feeds the Growth Report directly</li><li>Share edge-case learnings in team check-ins to improve SOPs</li></ul></div>
+  <div class="dont-box"><h4>✘ Common Mistakes (DON'T)</h4><ul><li>Skip steps in the SOP because they seem unnecessary that day</li><li>Delay documentation — it becomes impossible to reconstruct later</li><li>Attempt to resolve situations that are outside your authorisation level</li><li>Ignore small errors — they compound into customer-visible failures</li><li>Assume you know the answer without checking the SOP first</li></ul></div>
+</div></div>
+
+    <!-- KNOWLEDGE CHECK -->
+    <div class="s-card"><h3 class="s-card-title"><span class="s-card-icon">🧠</span>Quick Knowledge Check</h3><div class="kc-card">
+  <div class="kc-q">Q: What is the first step before executing any Sales task?</div>
+  <div class="kc-a" id="kca-m3kc0">Review the relevant SOP document — not from memory, but fresh each time — then execute each step while logging your actions.</div>
+  <button class="kc-toggle" id="kcb-m3kc0" onclick="toggleKC('m3kc0')">Show Answer</button>
+</div>
+<div class="kc-card">
+  <div class="kc-q">Q: Why should you never skip documentation even for routine tasks?</div>
+  <div class="kc-a" id="kca-m3kc1">Documentation creates an auditable record that protects the team during reviews, enables manager oversight, and prevents errors from recurring.</div>
+  <button class="kc-toggle" id="kcb-m3kc1" onclick="toggleKC('m3kc1')">Show Answer</button>
+</div>
+<div class="kc-card">
+  <div class="kc-q">Q: When should you escalate a situation rather than resolving it yourself?</div>
+  <div class="kc-a" id="kca-m3kc2">Any time the situation falls outside the defined SOP steps, outside your authorisation level, or involves risk you are not trained to assess independently.</div>
+  <button class="kc-toggle" id="kcb-m3kc2" onclick="toggleKC('m3kc2')">Show Answer</button>
+</div>
+<div class="kc-card">
+  <div class="kc-q">Q: How does consistent SOP adherence benefit your career at NamanDarshan?</div>
+  <div class="kc-a" id="kca-m3kc3">Reliability earns trust. When managers know you execute correctly every time, they delegate higher-value work to you, accelerating your growth and responsibilities.</div>
+  <button class="kc-toggle" id="kcb-m3kc3" onclick="toggleKC('m3kc3')">Show Answer</button>
+</div></div>
+
+    <!-- SUMMARY -->
+    <div class="s-card"><h3 class="s-card-title"><span class="s-card-icon">📋</span>Module Summary</h3><div class="summary-box"><div class="sl">Key Takeaways</div><p>In this module, you explored the core principles behind Service Quality &amp; Pilgrim Experience. You learned how SOP adherence creates consistency, how documentation protects both the team and the business, and how even small behavioural shifts — reading before acting, logging before moving on, escalating before improvising — compound into dramatically better outcomes for NamanDarshan&#39;s pilgrims. The case study showed these principles in action under real pressure. Carry these habits into your daily work: they are the foundation of excellence in the Sales department.</p></div></div>
+
+    <!-- QUIZ -->
+    <div class="quiz-wrap">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+    <h3 style="font-size:1.15rem;display:flex;align-items:center;gap:.5rem;border:none;padding:0;margin:0;">🧪 Module Assessment</h3>
+    <span style="font-size:.82rem;font-weight:700;color:var(--warm-gray);">Pass mark: 70%</span>
+  </div>
+  <div class="quiz-q" data-qi="0">
+  <div class="quiz-q-label">Question 1 of 8</div>
+  <div class="quiz-q-text">During a Yatra booking surge, a Sales team member encounters a scenario not covered by the standard SOP. What is the correct first response?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,0)"><span class="ol">A</span>Log the scenario and escalate via the defined escalation path immediately</button><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,1)"><span class="ol">B</span>Resolve it independently to avoid delays</button><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,2)"><span class="ol">C</span>Wait until end of shift and mention it to the manager</button><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,3)"><span class="ol">D</span>Ignore it if it seems minor</button></div>
+  <div class="quiz-exp" id="qexp-0">Out-of-scope situations require immediate escalation and documentation. Attempting independent resolution without authority creates risk for both the pilgrim and the Sales team.</div>
+</div><div class="quiz-q" data-qi="1">
+  <div class="quiz-q-label">Question 2 of 8</div>
+  <div class="quiz-q-text">A VIP Darshan slot booking shows conflicting information between two system records. Before acting, the team member should:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,0)"><span class="ol">A</span>Cross-reference both records, document the discrepancy, and escalate per SOP</button><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,1)"><span class="ol">B</span>Update the newer record and assume it is correct</button><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,2)"><span class="ol">C</span>Cancel both records and ask the pilgrim to rebook</button><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,3)"><span class="ol">D</span>Proceed with whichever record appears first</button></div>
+  <div class="quiz-exp" id="qexp-1">Data conflicts require systematic verification, not assumption. Documenting and escalating protects the pilgrim&#39;s experience and creates an audit trail for the discrepancy.</div>
+</div><div class="quiz-q" data-qi="2">
+  <div class="quiz-q-label">Question 3 of 8</div>
+  <div class="quiz-q-text">What does consistent documentation practice achieve for the Sales department at NamanDarshan?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,0)"><span class="ol">A</span>Creates audit trails, enables manager oversight, and prevents recurring errors</button><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,1)"><span class="ol">B</span>Only useful during peak periods and festivals</button><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,2)"><span class="ol">C</span>Required only for escalated cases, not routine tasks</button><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,3)"><span class="ol">D</span>Primarily for the IT team to reference</button></div>
+  <div class="quiz-exp" id="qexp-2">Documentation is valuable for every task, not just exceptions. It enables continuous improvement, protects the team, and gives managers the visibility they need to support the team effectively.</div>
+</div><div class="quiz-q" data-qi="3">
+  <div class="quiz-q-label">Question 4 of 8</div>
+  <div class="quiz-q-text">A pilgrim contacts the team upset about a delayed Prasad delivery. The best immediate response combines:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,0)"><span class="ol">A</span>Empathetic acknowledgment + immediate escalation + follow-up commitment</button><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,1)"><span class="ol">B</span>Apologising repeatedly without taking action</button><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,2)"><span class="ol">C</span>Explaining the delay is outside the team&#39;s control</button><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,3)"><span class="ol">D</span>Asking the pilgrim to recontact in 24 hours</button></div>
+  <div class="quiz-exp" id="qexp-3">Pilgrim-facing service recovery requires three elements: acknowledge the frustration, take immediate action via the escalation path, and commit to a follow-up. All three must happen in that sequence.</div>
+</div><div class="quiz-q" data-qi="4">
+  <div class="quiz-q-label">Question 5 of 8</div>
+  <div class="quiz-q-text">After completing a challenging task correctly during a busy shift, the most valuable next step is:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,0)"><span class="ol">A</span>Note any SOP gaps or edge cases encountered and raise them in the next team check-in</button><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,1)"><span class="ol">B</span>Move immediately to the next task without reflection</button><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,2)"><span class="ol">C</span>Report the challenge to HR as a workload concern</button><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,3)"><span class="ol">D</span>Congratulate yourself and wait for manager recognition</button></div>
+  <div class="quiz-exp" id="qexp-4">Individual experiences are organisational intelligence. Raising edge cases in check-ins allows the SOP to be updated, preventing future team members from facing the same challenge unprepared.</div>
+</div><div class="quiz-q" data-qi="5">
+  <div class="quiz-q-label">Question 6 of 8</div>
+  <div class="quiz-q-text">What is the significance of the 70% pass mark on module quizzes?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,0)"><span class="ol">A</span>It indicates sufficient operational knowledge to apply the module&#39;s concepts safely in live work</button><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,1)"><span class="ol">B</span>It is an arbitrary HR requirement with no operational significance</button><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,2)"><span class="ol">C</span>It only matters for new joiners, not experienced staff</button><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,3)"><span class="ol">D</span>Passing on the first attempt is required — retries are not counted</button></div>
+  <div class="quiz-exp" id="qexp-5">70% is the threshold that indicates a team member has understood the module well enough to apply its concepts without creating operational risk. Retries are encouraged — the goal is learning, not just passing.</div>
+</div><div class="quiz-q" data-qi="6">
+  <div class="quiz-q-label">Question 7 of 8</div>
+  <div class="quiz-q-text">A new Sales team member asks why they should read the SOP again before a routine task they have done many times. The best answer is:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,0)"><span class="ol">A</span>SOPs may have been updated, and consistent reference prevents memory-based errors that compound over time</button><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,1)"><span class="ol">B</span>They should trust their memory — re-reading wastes time</button><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,2)"><span class="ol">C</span>It is only required during onboarding, not ongoing work</button><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,3)"><span class="ol">D</span>SOPs are only for managers to verify, not for daily use</button></div>
+  <div class="quiz-exp" id="qexp-6">SOPs evolve as the business learns. Reading them consistently also prevents the natural degradation of memory-based execution, where small deviations accumulate into significant process drift.</div>
+</div><div class="quiz-q" data-qi="7">
+  <div class="quiz-q-label">Question 8 of 8</div>
+  <div class="quiz-q-text">Cross-department coordination at NamanDarshan works best when:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,0)"><span class="ol">A</span>Each team uses documented handover notes and follows the shared escalation path</button><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,1)"><span class="ol">B</span>Teams communicate informally and resolve issues without documentation</button><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,2)"><span class="ol">C</span>Departments work independently to avoid cross-team confusion</button><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,3)"><span class="ol">D</span>Only managers handle cross-department communication</button></div>
+  <div class="quiz-exp" id="qexp-7">Documented handovers and shared escalation paths ensure that information doesn&#39;t get lost at team boundaries — one of the most common sources of customer-facing failures in service businesses.</div>
+</div>
+  <div id="quiz-result" class="quiz-result">
+    <div class="rs">0%</div>
+    <div class="rm"></div>
+    <span class="result-badge"></span>
+  </div>
+  <div style="display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap;">
+    <button class="btn btn-primary" id="submit-btn" onclick="submitQuiz()">Submit Answers</button>
+    <button class="btn btn-ghost" id="retry-btn" onclick="retryQuiz()" style="display:none;">↺ Retry Quiz</button>
+  </div>
+</div>
+
+    <!-- COMPLETION BANNER -->
+    <div class="completion-banner" id="completion-banner">
+      <h3>🎉 Module Complete!</h3>
+      <p>Great work! Your progress has been recorded. You scored <strong><span id="final-score">–</span></strong> on this module.</p>
+      <div class="cb-btns">
+        <a href="./sales-module-04-20260409080524.html" class="btn btn-primary">Next Module →</a>
+        <a href="./sales-index-20260409080524.html" class="btn btn-ghost" style="color:white;border-color:rgba(255,255,255,.4);">Back to Course Home</a>
+      </div>
+    </div>
+
+    <!-- NAV ROW -->
+    <div class="mod-nav-row">
+      <a href="./sales-module-02-20260409080524.html" class="btn btn-ghost">← Previous</a>
+      <a href="./sales-module-04-20260409080524.html" class="btn btn-primary">Next Module →</a>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────
+const QUIZ_DATA    = [{"ci": 0, "exp": "Out-of-scope situations require immediate escalation and documentation. Attempting independent resolution without authority creates risk for both the pilgrim and the Sales team."}, {"ci": 0, "exp": "Data conflicts require systematic verification, not assumption. Documenting and escalating protects the pilgrim's experience and creates an audit trail for the discrepancy."}, {"ci": 0, "exp": "Documentation is valuable for every task, not just exceptions. It enables continuous improvement, protects the team, and gives managers the visibility they need to support the team effectively."}, {"ci": 0, "exp": "Pilgrim-facing service recovery requires three elements: acknowledge the frustration, take immediate action via the escalation path, and commit to a follow-up. All three must happen in that sequence."}, {"ci": 0, "exp": "Individual experiences are organisational intelligence. Raising edge cases in check-ins allows the SOP to be updated, preventing future team members from facing the same challenge unprepared."}, {"ci": 0, "exp": "70% is the threshold that indicates a team member has understood the module well enough to apply its concepts without creating operational risk. Retries are encouraged — the goal is learning, not just passing."}, {"ci": 0, "exp": "SOPs evolve as the business learns. Reading them consistently also prevents the natural degradation of memory-based execution, where small deviations accumulate into significant process drift."}, {"ci": 0, "exp": "Documented handovers and shared escalation paths ensure that information doesn't get lost at team boundaries — one of the most common sources of customer-facing failures in service businesses."}];
+const TOTAL_LESSONS = 5;
+const COURSE_SLUG  = 'sales';
+const MODULE_IDX   = 3;
+const MODULE_ID    = 'mod_3';
+const MODULE_TITLE = 'Service Quality & Pilgrim Experience';
+const DEPT         = 'Sales';
+
+// ── LESSON TRACKING ───────────────────────────────────────────────────────
+const readLessons = new Set();
+
+function markLessonRead(lid) {
+  readLessons.add(lid);
+  const btn = document.getElementById('read-btn-' + lid);
+  if (btn) { btn.textContent = '✓ Read'; btn.classList.add('done'); btn.disabled = true; }
+  const dot = document.querySelector('.sidebar-lessons li a[data-lid="' + lid + '"] .lesson-dot');
+  if (dot) { dot.style.background = 'var(--green)'; }
+  const link = document.querySelector('.sidebar-lessons li a[data-lid="' + lid + '"]');
+  if (link) link.classList.add('done-lesson');
+  updateLessonProgress();
+}
+
+function updateLessonProgress() {
+  const pct = TOTAL_LESSONS > 0 ? Math.round((readLessons.size / TOTAL_LESSONS) * 100) : 0;
+  const fill = document.getElementById('lesson-fill');
+  const bar  = document.getElementById('lesson-prog-bar');
+  const lbl  = document.getElementById('lprog-label');
+  if (fill) fill.style.width = pct + '%';
+  if (bar)  bar.style.width = pct + '%';
+  if (lbl)  lbl.textContent = readLessons.size + ' of ' + TOTAL_LESSONS + ' read';
+}
+
+function toggleLesson(lid) {
+  const body = document.getElementById('lbody-' + lid);
+  const tog  = document.getElementById('ltog-' + lid);
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (tog) tog.style.transform = open ? 'rotate(180deg)' : '';
+  if (open) {
+    setTimeout(() => body.scrollIntoView({ behavior:'smooth', block:'nearest' }), 100);
+  }
+}
+
+function toggleKC(kid) {
+  const ans = document.getElementById('kca-' + kid);
+  const btn = document.getElementById('kcb-' + kid);
+  if (!ans) return;
+  const shown = ans.style.display === 'block';
+  ans.style.display = shown ? 'none' : 'block';
+  if (btn) btn.textContent = shown ? 'Show Answer' : 'Hide Answer';
+}
+
+// ── QUIZ ENGINE ───────────────────────────────────────────────────────────
+const chosen  = {};
+let submitted = false;
+let quizScore = 0;
+
+function selectOpt(qi, oi) {
+  if (submitted) return;
+  chosen[qi] = oi;
+  const opts = document.querySelectorAll('[data-qi="' + qi + '"] .quiz-opt');
+  opts.forEach((o, i) => o.classList.toggle('sel', i === oi));
+}
+
+function submitQuiz() {
+  if (submitted) return;
+  submitted = true;
+  let correct = 0;
+  QUIZ_DATA.forEach((q, qi) => {
+    const sel = chosen[qi];
+    const opts = document.querySelectorAll('[data-qi="' + qi + '"] .quiz-opt');
+    opts.forEach((o, i) => {
+      o.classList.add('dis');
+      if (i === q.ci) o.classList.add('correct');
+      else if (i === sel && i !== q.ci) o.classList.add('wrong');
+    });
+    const exp = document.getElementById('qexp-' + qi);
+    if (exp) exp.style.display = 'block';
+    if (sel === q.ci) correct++;
+  });
+  quizScore = QUIZ_DATA.length > 0 ? Math.round((correct / QUIZ_DATA.length) * 100) : 0;
+
+  const res = document.getElementById('quiz-result');
+  if (res) {
+    res.style.display = 'block';
+    res.querySelector('.rs').textContent = quizScore + '%';
+    res.querySelector('.rm').textContent = correct + ' of ' + QUIZ_DATA.length + ' correct';
+    const badge = res.querySelector('.result-badge');
+    if (quizScore >= 70) {
+      badge.textContent = '✓ Passed'; badge.className = 'result-badge rb-pass';
+    } else {
+      badge.textContent = '✗ Needs Improvement'; badge.className = 'result-badge rb-fail';
+    }
+  }
+
+  document.getElementById('submit-btn').style.display = 'none';
+  document.getElementById('retry-btn').style.display  = 'inline-flex';
+
+  if (quizScore >= 70) markComplete();
+}
+
+function retryQuiz() {
+  submitted = false; quizScore = 0;
+  Object.keys(chosen).forEach(k => delete chosen[k]);
+  document.querySelectorAll('.quiz-opt').forEach(o => o.className = 'quiz-opt');
+  document.querySelectorAll('[id^="qexp-"]').forEach(e => e.style.display = 'none');
+  const res = document.getElementById('quiz-result');
+  if (res) res.style.display = 'none';
+  document.getElementById('submit-btn').style.display = 'inline-flex';
+  document.getElementById('retry-btn').style.display  = 'none';
+}
+
+function markComplete() {
+  const score = quizScore;
+  const key   = `nd_${COURSE_SLUG}_mod${MODULE_IDX}`;
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      passed: score >= 70, score, completedAt: new Date().toISOString()
+    }));
+  } catch(e) {}
+
+  const banner = document.getElementById('completion-banner');
+  const fs     = document.getElementById('final-score');
+  if (fs) fs.textContent = score + '%';
+  if (banner) banner.style.display = 'block';
+
+  postProgress(score);
+}
+
+function postProgress(score) {
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    fetch('/api/update-progress', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? {'Authorization': `Bearer ${token}`} : {})
+      },
+      body: JSON.stringify({
+        module_id:    MODULE_ID,
+        module_title: MODULE_TITLE,
+        department:   DEPT,
+        score,
+        passed:       score >= 70,
+        source:       'html_module',
+        timestamp:    new Date().toISOString()
+      })
+    }).catch(() => {});
+  } catch(e) {}
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Open first lesson
+  const firstBody = document.querySelector('.lesson-body');
+  if (firstBody) firstBody.classList.add('open');
+  const firstTog = document.querySelector('.lesson-tog');
+  if (firstTog) firstTog.style.transform = 'rotate(180deg)';
+
+  // Restore completed state from localStorage
+  try {
+    const key  = `nd_${COURSE_SLUG}_mod${MODULE_IDX}`;
+    const data = JSON.parse(localStorage.getItem(key) || 'null');
+    if (data && data.passed) {
+      const banner = document.getElementById('completion-banner');
+      const fs     = document.getElementById('final-score');
+      if (fs) fs.textContent = (data.score || '–') + '%';
+      if (banner) banner.style.display = 'block';
+    }
+  } catch(e) {}
+});
+</script>
+</body>
+</html>

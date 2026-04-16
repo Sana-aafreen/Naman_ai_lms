@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Final Exam — Sales Department Learning Path — NamanDarshan LMS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+
+:root {
+  --saffron:      #F97316;
+  --saffron-dark: #C2410C;
+  --saffron-lite: #FFF7ED;
+  --saffron-mid:  #FDBA74;
+  --cream:        #FFFBF5;
+  --warm-dark:    #1C1917;
+  --warm-mid:     #44403C;
+  --warm-gray:    #78716C;
+  --warm-light:   #F5F0E8;
+  --border:       #E7DDD0;
+  --white:        #FFFFFF;
+  --green:        #16A34A;
+  --green-lite:   #DCFCE7;
+  --red:          #DC2626;
+  --red-lite:     #FEE2E2;
+  --blue:         #2563EB;
+  --blue-lite:    #EFF6FF;
+  --amber:        #F59E0B;
+  --amber-lite:   #FFFBEB;
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:    0 4px 16px rgba(0,0,0,.12);
+  --shadow-lg:    0 12px 40px rgba(0,0,0,.16);
+  --radius:       16px;
+  --radius-sm:    10px;
+  --radius-xs:    6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--cream);
+  color: var(--warm-dark);
+  line-height: 1.75;
+  min-height: 100vh;
+}
+h1,h2,h3,h4,h5 { font-family: 'Yeseva One', serif; line-height: 1.3; }
+a { color: var(--saffron); text-decoration: none; }
+a:hover { text-decoration: underline; }
+p { margin-bottom: 1rem; }
+p:last-child { margin-bottom: 0; }
+ul,ol { padding-left: 1.4rem; }
+li { margin-bottom: .4rem; }
+
+/* NAVBAR */
+.navbar {
+  position: sticky; top: 0; z-index: 200;
+  background: var(--warm-dark);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 60px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+}
+.navbar-brand { display: flex; align-items: center; gap: .75rem; }
+.navbar-logo {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-family: 'Yeseva One',serif; font-size: 17px;
+}
+.navbar-title { font-family:'Yeseva One',serif; font-size:1.05rem; color:white; }
+.navbar-title span { color: var(--saffron-mid); }
+.navbar-links { display:flex; align-items:center; gap:1rem; }
+.navbar-links a {
+  font-size:.82rem; font-weight:700; color:rgba(255,255,255,.65);
+  padding:.35rem .7rem; border-radius:6px; transition:all .15s;
+}
+.navbar-links a:hover, .navbar-links a.active {
+  color:white; background:rgba(255,255,255,.12); text-decoration:none;
+}
+.navbar-badge {
+  font-size:.72rem; font-weight:800; letter-spacing:.06em;
+  padding:.3rem .8rem; border-radius:20px;
+  background:rgba(249,115,22,.18); color:var(--saffron-mid);
+  border:1px solid rgba(249,115,22,.3);
+}
+.progress-strip { height:3px; background:rgba(255,255,255,.1); }
+.progress-fill {
+  height:100%;
+  background:linear-gradient(90deg,var(--saffron),var(--amber));
+  transition:width .5s ease;
+}
+
+/* BUTTONS */
+.btn {
+  display:inline-flex; align-items:center; gap:.4rem;
+  padding:.7rem 1.5rem; border-radius:var(--radius-sm);
+  font-family:'Nunito',sans-serif; font-size:.9rem; font-weight:800;
+  border:none; cursor:pointer; transition:all .18s; text-decoration:none;
+}
+.btn-primary { background:var(--saffron); color:white; }
+.btn-primary:hover { background:var(--saffron-dark); transform:translateY(-1px); box-shadow:var(--shadow-md); text-decoration:none; color:white; }
+.btn-ghost { background:transparent; color:var(--warm-gray); border:1.5px solid var(--border); }
+.btn-ghost:hover { border-color:var(--saffron); color:var(--saffron); text-decoration:none; }
+.btn-dark { background:var(--warm-dark); color:white; }
+.btn-dark:hover { background:#2C2420; transform:translateY(-1px); text-decoration:none; color:white; }
+.btn-green { background:var(--green); color:white; }
+.btn-green:hover { background:#15803D; transform:translateY(-1px); text-decoration:none; color:white; }
+.btn:disabled { opacity:.5; cursor:not-allowed; transform:none !important; }
+
+/* CHIPS */
+.chip {
+  display:inline-flex; align-items:center; gap:.3rem;
+  font-size:.75rem; font-weight:700;
+  padding:.3rem .75rem; border-radius:20px;
+  background:var(--warm-light); color:var(--warm-mid);
+}
+.chip-saffron { background:var(--saffron-lite); color:var(--saffron-dark); }
+.chip-green { background:var(--green-lite); color:var(--green); }
+.chip-blue { background:var(--blue-lite); color:var(--blue); }
+
+/* SECTION CARD */
+.s-card {
+  background:var(--white); border:1px solid var(--border);
+  border-radius:var(--radius); padding:2rem;
+  margin-bottom:1.75rem; box-shadow:var(--shadow-sm);
+}
+.s-card-title {
+  font-size:1.1rem; display:flex; align-items:center; gap:.6rem;
+  padding-bottom:.85rem; margin-bottom:1.25rem;
+  border-bottom:2px solid var(--warm-light);
+}
+.s-card-icon {
+  width:32px; height:32px; border-radius:8px;
+  background:var(--saffron-lite); color:var(--saffron);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1rem; flex-shrink:0;
+}
+
+/* QUIZ */
+.quiz-wrap { background:var(--white); border:2px solid var(--saffron); border-radius:var(--radius); padding:2rem; margin-bottom:1.75rem; }
+.quiz-q { margin-bottom:1.75rem; }
+.quiz-q-label { font-size:.7rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:var(--saffron); margin-bottom:.4rem; }
+.quiz-q-text { font-weight:700; font-size:.975rem; margin-bottom:.85rem; line-height:1.5; color:var(--warm-dark); }
+.quiz-opts { display:flex; flex-direction:column; gap:.5rem; }
+.quiz-opt {
+  display:flex; align-items:center; gap:.75rem;
+  padding:.75rem 1rem; border:1.5px solid var(--border);
+  border-radius:var(--radius-sm); cursor:pointer;
+  font-family:'Nunito',sans-serif; font-size:.9rem;
+  background:white; transition:all .15s; text-align:left;
+}
+.quiz-opt .ol {
+  width:28px; height:28px; border-radius:6px;
+  background:var(--warm-light); color:var(--warm-gray);
+  font-size:.78rem; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:all .15s;
+}
+.quiz-opt:hover { border-color:var(--saffron); background:var(--saffron-lite); }
+.quiz-opt:hover .ol { background:var(--saffron); color:white; }
+.quiz-opt.sel { border-color:var(--saffron); background:var(--saffron-lite); }
+.quiz-opt.sel .ol { background:var(--saffron); color:white; }
+.quiz-opt.correct { border-color:var(--green); background:var(--green-lite); pointer-events:none; }
+.quiz-opt.correct .ol { background:var(--green); color:white; }
+.quiz-opt.wrong { border-color:var(--red); background:var(--red-lite); pointer-events:none; }
+.quiz-opt.wrong .ol { background:var(--red); color:white; }
+.quiz-opt.dis { pointer-events:none; opacity:.65; }
+.quiz-exp { display:none; margin-top:.6rem; padding:.75rem 1rem; background:var(--blue-lite); border-left:3px solid var(--blue); border-radius:0 var(--radius-xs) var(--radius-xs) 0; font-size:.85rem; color:#1D4ED8; line-height:1.55; }
+.quiz-result { text-align:center; padding:2.5rem; border-radius:var(--radius-sm); background:var(--saffron-lite); border:1px solid var(--saffron-mid); display:none; margin-top:1.5rem; }
+.quiz-result .rs { font-size:3.5rem; font-family:'Yeseva One',serif; color:var(--saffron); line-height:1; }
+.quiz-result .rm { color:var(--warm-gray); margin:.5rem 0 1rem; font-size:.95rem; }
+.result-badge { display:inline-block; font-size:.85rem; font-weight:700; padding:.4rem 1.2rem; border-radius:20px; }
+.rb-pass { background:var(--green-lite); color:var(--green); }
+.rb-fail { background:var(--red-lite); color:var(--red); }
+
+@media (max-width:600px) {
+  .navbar { padding:0 1rem; }
+  .navbar-links { display:none; }
+}
+
+.exam-page { max-width:860px; margin:0 auto; padding:2.5rem 1.5rem; }
+.exam-hero {
+  background:linear-gradient(135deg,#1C1917,#3C2A1A);
+  border-radius:var(--radius); padding:3rem; text-align:center;
+  color:white; margin-bottom:2.5rem; position:relative; overflow:hidden;
+}
+.exam-hero::before {
+  content:"🎓"; position:absolute; right:2rem; top:50%; transform:translateY(-50%);
+  font-size:8rem; opacity:.07;
+}
+.exam-hero h1 { color:white; font-size:2rem; margin-bottom:.6rem; }
+.exam-hero p { color:rgba(255,255,255,.6); max-width:480px; margin:0 auto; }
+.exam-hero .eh-chips { display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; margin-top:1.25rem; }
+.certificate {
+  display:none; background:linear-gradient(135deg,var(--saffron-lite),#FFF3E0);
+  border:2px solid var(--saffron-mid); border-radius:var(--radius);
+  padding:3rem; text-align:center; margin-bottom:2rem;
+}
+.certificate .cert-icon { font-size:4rem; margin-bottom:1rem; }
+.certificate h2 { font-size:1.75rem; color:var(--saffron-dark); margin-bottom:.5rem; }
+.certificate p { color:var(--warm-gray); margin-bottom:1.5rem; }
+.certificate .cert-score { font-family:'Yeseva One',serif; font-size:3.5rem; color:var(--saffron); line-height:1; margin-bottom:.25rem; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-brand">
+    <div class="navbar-logo">ॐ</div>
+    <span class="navbar-title">Naman<span>LMS</span></span>
+  </div>
+  <div class="navbar-links">
+    <a href="./sales-index-20260409080524.html">← Course Home</a>
+  </div>
+  <span class="navbar-badge">Sales Final Exam</span>
+</nav>
+<div class="progress-strip"><div class="progress-fill" style="width:100%"></div></div>
+
+<div class="exam-page">
+
+  <div class="exam-hero">
+    <h1>🎓 Final Course Examination</h1>
+    <p>This exam covers all 5 modules. You need <strong>70%</strong> or above to receive your completion certificate.</p>
+    <div class="eh-chips">
+      <span class="chip chip-saffron">📚 5 Modules Covered</span>
+      <span class="chip chip-saffron">🧪 12 Questions</span>
+      <span class="chip chip-saffron">⏱ ~24 min</span>
+    </div>
+  </div>
+
+  <!-- CERTIFICATE (shown on pass) -->
+  <div class="certificate" id="certificate">
+    <div class="cert-icon">🏅</div>
+    <div class="cert-score" id="cert-score">–</div>
+    <h2>Course Completed!</h2>
+    <p>Congratulations! You have successfully completed <strong>Sales Department Learning Path</strong>.</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+      <a href="./sales-index-20260409080524.html" class="btn btn-primary">← Back to Course</a>
+      <button class="btn btn-ghost" onclick="window.print()">🖨 Print Certificate</button>
+    </div>
+  </div>
+
+  <!-- QUIZ WRAP -->
+  <div class="quiz-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.75rem;">
+      <h2 style="font-size:1.25rem;display:flex;align-items:center;gap:.5rem;border:none;padding:0;margin:0;">Final Exam Questions</h2>
+      <span style="font-size:.82rem;font-weight:700;color:var(--warm-gray);">Pass mark: 70%</span>
+    </div>
+    <div class="quiz-q" data-qi="0">
+  <div class="quiz-q-label">Question 1 of 12</div>
+  <div class="quiz-q-text">What is the most important habit for a Sales team member at NamanDarshan?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,0)"><span class="ol">A</span>Consistent SOP adherence combined with thorough, timestamped documentation</button><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,1)"><span class="ol">B</span>Completing tasks quickly without review</button><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,2)"><span class="ol">C</span>Memorising all SOPs from cover to cover</button><button class="quiz-opt" data-qi="0" onclick="selectOpt(0,3)"><span class="ol">D</span>Minimising communication with other departments</button></div>
+  <div class="quiz-exp" id="qexp-0">SOP adherence + documentation is the bedrock of operational quality and the single most important daily discipline.</div>
+</div><div class="quiz-q" data-qi="1">
+  <div class="quiz-q-label">Question 2 of 12</div>
+  <div class="quiz-q-text">During a VIP Darshan booking conflict, the first action a team member should take is:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,0)"><span class="ol">A</span>Log the issue with full details and escalate immediately via the defined path</button><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,1)"><span class="ol">B</span>Try to resolve it independently to save time</button><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,2)"><span class="ol">C</span>Inform the pilgrim to rebook for a different date</button><button class="quiz-opt" data-qi="1" onclick="selectOpt(1,3)"><span class="ol">D</span>Ignore it if it appears minor and move to the next task</button></div>
+  <div class="quiz-exp" id="qexp-1">Booking conflicts affecting VIP Darshan slots are high-impact. Logging + immediate escalation ensures accountability and fast resolution with no pilgrim-facing disruption.</div>
+</div><div class="quiz-q" data-qi="2">
+  <div class="quiz-q-label">Question 3 of 12</div>
+  <div class="quiz-q-text">A 70% or above score on a module quiz indicates:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,0)"><span class="ol">A</span>The learner has sufficient knowledge to apply the module&#39;s concepts in live operational scenarios</button><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,1)"><span class="ol">B</span>The learner has memorised all SOP text verbatim</button><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,2)"><span class="ol">C</span>The learner no longer requires manager guidance on any topic</button><button class="quiz-opt" data-qi="2" onclick="selectOpt(2,3)"><span class="ol">D</span>The learner can skip all future training modules</button></div>
+  <div class="quiz-exp" id="qexp-2">70% signals adequate understanding for safe application. It is a minimum, not a ceiling — continued learning beyond passing is expected and encouraged.</div>
+</div><div class="quiz-q" data-qi="3">
+  <div class="quiz-q-label">Question 4 of 12</div>
+  <div class="quiz-q-text">Which of the following is a core NamanDarshan service?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,0)"><span class="ol">A</span>VIP Darshan, Yatra packages, Online Puja, and Prasad delivery</button><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,1)"><span class="ol">B</span>Movie ticketing and hotel reservations</button><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,2)"><span class="ol">C</span>Grocery delivery and subscription boxes</button><button class="quiz-opt" data-qi="3" onclick="selectOpt(3,3)"><span class="ol">D</span>Digital marketing and SEO consultancy</button></div>
+  <div class="quiz-exp" id="qexp-3">NamanDarshan specialises in pilgrimage facilitation and spiritual service delivery — all team members should be fluent in the core service portfolio.</div>
+</div><div class="quiz-q" data-qi="4">
+  <div class="quiz-q-label">Question 5 of 12</div>
+  <div class="quiz-q-text">Why should team members share edge-case observations during check-ins?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,0)"><span class="ol">A</span>To improve SOPs and training so the whole team benefits from individual learning</button><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,1)"><span class="ol">B</span>To demonstrate personal initiative to managers</button><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,2)"><span class="ol">C</span>To reduce their own future workload by getting others to handle similar cases</button><button class="quiz-opt" data-qi="4" onclick="selectOpt(4,3)"><span class="ol">D</span>Because it is a mandatory HR compliance requirement</button></div>
+  <div class="quiz-exp" id="qexp-4">Individual observations are collective intelligence. Shared systematically, they drive SOP improvement and make the entire team more capable over time.</div>
+</div><div class="quiz-q" data-qi="5">
+  <div class="quiz-q-label">Question 6 of 12</div>
+  <div class="quiz-q-text">What does the NamanDarshan Growth Report track?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,0)"><span class="ol">A</span>Module quiz scores, completion dates, and pass/fail status for each team member</button><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,1)"><span class="ol">B</span>Social media engagement metrics</button><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,2)"><span class="ol">C</span>Monthly revenue performance by department</button><button class="quiz-opt" data-qi="5" onclick="selectOpt(5,3)"><span class="ol">D</span>Website traffic from pilgrimage-related searches</button></div>
+  <div class="quiz-exp" id="qexp-5">The Growth Report is the learning performance record. Quiz scores are automatically posted when a module is completed, making the report a real-time reflection of each team member&#39;s training progress.</div>
+</div><div class="quiz-q" data-qi="6">
+  <div class="quiz-q-label">Question 7 of 12</div>
+  <div class="quiz-q-text">Which behaviour most directly damages pilgrim trust at NamanDarshan?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,0)"><span class="ol">A</span>Providing inaccurate information or failing to follow up on a committed action</button><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,1)"><span class="ol">B</span>Taking slightly longer than expected to resolve a routine request</button><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,2)"><span class="ol">C</span>Escalating a query rather than resolving it independently</button><button class="quiz-opt" data-qi="6" onclick="selectOpt(6,3)"><span class="ol">D</span>Asking a pilgrim clarifying questions before acting</button></div>
+  <div class="quiz-exp" id="qexp-6">Trust is built on accuracy and reliability. Inaccurate information or broken follow-up commitments are the two most common causes of pilgrim complaints and the hardest to recover from.</div>
+</div><div class="quiz-q" data-qi="7">
+  <div class="quiz-q-label">Question 8 of 12</div>
+  <div class="quiz-q-text">When documentation is incomplete, the primary operational risk is:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,0)"><span class="ol">A</span>Inability to reconstruct what happened during audits, reviews, or disputes</button><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,1)"><span class="ol">B</span>Increased storage costs in operational systems</button><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,2)"><span class="ol">C</span>Slower system performance during peak periods</button><button class="quiz-opt" data-qi="7" onclick="selectOpt(7,3)"><span class="ol">D</span>Reduced marketing effectiveness</button></div>
+  <div class="quiz-exp" id="qexp-7">Incomplete documentation makes it impossible to verify what occurred, resolve disputes fairly, or identify the root cause of errors — creating legal, operational, and reputational risk.</div>
+</div><div class="quiz-q" data-qi="8">
+  <div class="quiz-q-label">Question 9 of 12</div>
+  <div class="quiz-q-text">Cross-department coordination at NamanDarshan succeeds when teams:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="8" onclick="selectOpt(8,0)"><span class="ol">A</span>Use documented handover notes and follow the shared escalation path consistently</button><button class="quiz-opt" data-qi="8" onclick="selectOpt(8,1)"><span class="ol">B</span>Communicate informally to move quickly without bureaucracy</button><button class="quiz-opt" data-qi="8" onclick="selectOpt(8,2)"><span class="ol">C</span>Allow only managers to communicate across department boundaries</button><button class="quiz-opt" data-qi="8" onclick="selectOpt(8,3)"><span class="ol">D</span>Resolve every issue within the originating department before escalating</button></div>
+  <div class="quiz-exp" id="qexp-8">Documented handovers prevent information loss at team boundaries, the most frequent source of errors in multi-team service delivery.</div>
+</div><div class="quiz-q" data-qi="9">
+  <div class="quiz-q-label">Question 10 of 12</div>
+  <div class="quiz-q-text">A pilgrim leaves a negative review about their Online Puja experience. The correct team response is:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="9" onclick="selectOpt(9,0)"><span class="ol">A</span>Acknowledge, investigate using documentation records, resolve root cause, and follow up with the pilgrim</button><button class="quiz-opt" data-qi="9" onclick="selectOpt(9,1)"><span class="ol">B</span>Delete the review and offer a discount for the next booking</button><button class="quiz-opt" data-qi="9" onclick="selectOpt(9,2)"><span class="ol">C</span>Escalate to senior management only and await instructions</button><button class="quiz-opt" data-qi="9" onclick="selectOpt(9,3)"><span class="ol">D</span>Do nothing — negative reviews are normal in service businesses</button></div>
+  <div class="quiz-exp" id="qexp-9">Every complaint is a data point and a recovery opportunity. Using documentation records to investigate ensures the response is accurate. Following up with the pilgrim demonstrates accountability and often converts detractors to advocates.</div>
+</div><div class="quiz-q" data-qi="10">
+  <div class="quiz-q-label">Question 11 of 12</div>
+  <div class="quiz-q-text">The primary purpose of an SOP at NamanDarshan is:</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="10" onclick="selectOpt(10,0)"><span class="ol">A</span>To ensure every team member executes tasks consistently, safely, and in line with quality standards</button><button class="quiz-opt" data-qi="10" onclick="selectOpt(10,1)"><span class="ol">B</span>To reduce the number of staff needed by automating decisions</button><button class="quiz-opt" data-qi="10" onclick="selectOpt(10,2)"><span class="ol">C</span>To create paperwork that satisfies external auditors</button><button class="quiz-opt" data-qi="10" onclick="selectOpt(10,3)"><span class="ol">D</span>To prevent team members from exercising any independent judgment</button></div>
+  <div class="quiz-exp" id="qexp-10">SOPs standardise quality. They are not a bureaucratic burden but the mechanism through which NamanDarshan&#39;s service promise is reliably delivered regardless of which team member handles a given task.</div>
+</div><div class="quiz-q" data-qi="11">
+  <div class="quiz-q-label">Question 12 of 12</div>
+  <div class="quiz-q-text">Which mindset best describes a high-performing NamanDarshan team member?</div>
+  <div class="quiz-opts"><button class="quiz-opt" data-qi="11" onclick="selectOpt(11,0)"><span class="ol">A</span>Process-disciplined, documentation-consistent, and proactively escalating — while remaining empathetic to pilgrim needs</button><button class="quiz-opt" data-qi="11" onclick="selectOpt(11,1)"><span class="ol">B</span>Task-focused and fast, minimising time spent on documentation and checks</button><button class="quiz-opt" data-qi="11" onclick="selectOpt(11,2)"><span class="ol">C</span>Autonomous and innovative, rewriting procedures when they seem inefficient</button><button class="quiz-opt" data-qi="11" onclick="selectOpt(11,3)"><span class="ol">D</span>Cautious and risk-averse, declining any task that isn&#39;t explicitly in the SOP</button></div>
+  <div class="quiz-exp" id="qexp-11">Excellence at NamanDarshan combines technical process discipline with genuine care for pilgrims. Neither quality alone is sufficient — the combination is what creates consistently outstanding service.</div>
+</div>
+    <div id="quiz-result" class="quiz-result">
+      <div class="rs">0%</div>
+      <div class="rm"></div>
+      <span class="result-badge"></span>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="submit-btn" onclick="submitExam()">Submit Final Exam</button>
+      <button class="btn btn-ghost" id="retry-btn" onclick="retryExam()" style="display:none;">↺ Retry Exam</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const EXAM_DATA   = [{"ci": 0, "exp": "SOP adherence + documentation is the bedrock of operational quality and the single most important daily discipline."}, {"ci": 0, "exp": "Booking conflicts affecting VIP Darshan slots are high-impact. Logging + immediate escalation ensures accountability and fast resolution with no pilgrim-facing disruption."}, {"ci": 0, "exp": "70% signals adequate understanding for safe application. It is a minimum, not a ceiling — continued learning beyond passing is expected and encouraged."}, {"ci": 0, "exp": "NamanDarshan specialises in pilgrimage facilitation and spiritual service delivery — all team members should be fluent in the core service portfolio."}, {"ci": 0, "exp": "Individual observations are collective intelligence. Shared systematically, they drive SOP improvement and make the entire team more capable over time."}, {"ci": 0, "exp": "The Growth Report is the learning performance record. Quiz scores are automatically posted when a module is completed, making the report a real-time reflection of each team member's training progress."}, {"ci": 0, "exp": "Trust is built on accuracy and reliability. Inaccurate information or broken follow-up commitments are the two most common causes of pilgrim complaints and the hardest to recover from."}, {"ci": 0, "exp": "Incomplete documentation makes it impossible to verify what occurred, resolve disputes fairly, or identify the root cause of errors — creating legal, operational, and reputational risk."}, {"ci": 0, "exp": "Documented handovers prevent information loss at team boundaries, the most frequent source of errors in multi-team service delivery."}, {"ci": 0, "exp": "Every complaint is a data point and a recovery opportunity. Using documentation records to investigate ensures the response is accurate. Following up with the pilgrim demonstrates accountability and often converts detractors to advocates."}, {"ci": 0, "exp": "SOPs standardise quality. They are not a bureaucratic burden but the mechanism through which NamanDarshan's service promise is reliably delivered regardless of which team member handles a given task."}, {"ci": 0, "exp": "Excellence at NamanDarshan combines technical process discipline with genuine care for pilgrims. Neither quality alone is sufficient — the combination is what creates consistently outstanding service."}];
+const COURSE_SLUG = 'sales';
+const DEPT        = 'Sales';
+const chosen = {};
+let submitted = false;
+
+function selectOpt(qi, oi) {
+  if (submitted) return;
+  chosen[qi] = oi;
+  const opts = document.querySelectorAll('[data-qi="' + qi + '"] .quiz-opt');
+  opts.forEach((o, i) => o.classList.toggle('sel', i === oi));
+}
+
+function submitExam() {
+  if (submitted) return;
+  submitted = true;
+  let correct = 0;
+  EXAM_DATA.forEach((q, qi) => {
+    const sel = chosen[qi];
+    const opts = document.querySelectorAll('[data-qi="' + qi + '"] .quiz-opt');
+    opts.forEach((o, i) => {
+      o.classList.add('dis');
+      if (i === q.ci) o.classList.add('correct');
+      else if (i === sel && i !== q.ci) o.classList.add('wrong');
+    });
+    const exp = document.getElementById('qexp-' + qi);
+    if (exp) exp.style.display = 'block';
+    if (sel === q.ci) correct++;
+  });
+  const pct = EXAM_DATA.length > 0 ? Math.round((correct / EXAM_DATA.length) * 100) : 0;
+
+  const res = document.getElementById('quiz-result');
+  if (res) {
+    res.style.display = 'block';
+    res.querySelector('.rs').textContent = pct + '%';
+    res.querySelector('.rm').textContent = correct + ' of ' + EXAM_DATA.length + ' correct';
+    const badge = res.querySelector('.result-badge');
+    if (pct >= 70) {
+      badge.textContent = '✓ Passed — Certificate Awarded';
+      badge.className = 'result-badge rb-pass';
+    } else {
+      badge.textContent = '✗ Needs Improvement — Retry to pass';
+      badge.className = 'result-badge rb-fail';
+    }
+  }
+
+  document.getElementById('submit-btn').style.display = 'none';
+  document.getElementById('retry-btn').style.display  = 'inline-flex';
+
+  if (pct >= 70) {
+    // Save completion
+    try { localStorage.setItem(`nd_${COURSE_SLUG}_final`, JSON.stringify({ passed:true, score:pct, completedAt:new Date().toISOString() })); } catch(e) {}
+    const cert = document.getElementById('certificate');
+    const cs   = document.getElementById('cert-score');
+    if (cs) cs.textContent = pct + '%';
+    if (cert) cert.style.display = 'block';
+    cert.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+
+  // POST to growth tracker
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    fetch('/api/update-progress', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', ...(token ? {'Authorization':`Bearer ${token}`} : {}) },
+      body: JSON.stringify({ module_id:'final_exam', module_title:'Final Exam', department:DEPT, score:pct, passed:pct>=70, source:'html_final_exam', timestamp:new Date().toISOString() })
+    }).catch(()=>{});
+  } catch(e) {}
+}
+
+function retryExam() {
+  submitted = false;
+  Object.keys(chosen).forEach(k => delete chosen[k]);
+  document.querySelectorAll('.quiz-opt').forEach(o => o.className = 'quiz-opt');
+  document.querySelectorAll('[id^="qexp-"]').forEach(e => e.style.display = 'none');
+  const res = document.getElementById('quiz-result');
+  if (res) res.style.display = 'none';
+  document.getElementById('submit-btn').style.display = 'inline-flex';
+  document.getElementById('retry-btn').style.display  = 'none';
+}
+</script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 const express = require('express');
 const { google } = require('googleapis');
 const dotenv = require('dotenv');
+const { spawn } = require('child_process');
+const path = require('path');
 
 dotenv.config();
 
@@ -8,6 +10,22 @@ const router = express.Router();
 const SPREADSHEET_ID = '1ObVuVLXelgrKjKTJC3AXpv1YPxbWXO03wt5lXY8I-Po';
 
 let sheetsApi = null;
+const LEAVES_HEADERS = [
+    'Leave_ID',
+    'User_ID',
+    'User_Name',
+    'Department',
+    'Date_of_Leave_From',
+    'Date_of_Leave_Till',
+    'Reason',
+    'Leave_Type',
+    'Days',
+    'Status',
+    'Requested_Date',
+    'Approved_by_Manager_Name',
+    'Approval_Date',
+    'Manager_Comments',
+];
 
 function normalizeHeader(header) {
     return String(header || '')
@@ -42,6 +60,36 @@ function getValue(row, keys) {
     }
 
     return '';
+}
+
+function normalizeLeaveRow(row) {
+    const fromDate = getValue(row, ['Date_of_Leave_From', 'Date of Leave (From)', 'From_Date', 'From Date']);
+    const toDate = getValue(row, ['Date_of_Leave_Till', 'Date of Leave (Till)', 'To_Date', 'To Date']);
+    const approvedBy = getValue(row, ['Approved_by_Manager_Name', 'Approved by Manager name', 'Approved_By']);
+    const comments = getValue(row, ['Manager_Comments', 'Comments']);
+    const status = getValue(row, ['Status']) || 'Pending';
+    const days = getValue(row, ['Days']) || '';
+
+    return {
+        Leave_ID: getValue(row, ['Leave_ID', 'Leave ID']),
+        User_ID: getValue(row, ['User_ID', 'User ID', 'UserId']),
+        User_Name: getValue(row, ['User_Name', 'User Name', 'UserName', 'Name']),
+        Department: getValue(row, ['Department']),
+        Leave_Type: getValue(row, ['Leave_Type', 'Leave Type']) || 'General',
+        From_Date: fromDate,
+        To_Date: toDate,
+        Reason: getValue(row, ['Reason']),
+        Days: days,
+        Status: status,
+        Requested_Date: getValue(row, ['Requested_Date', 'Requested Date']),
+        Approved_By: approvedBy,
+        Approval_Date: getValue(row, ['Approval_Date', 'Approval Date']),
+        Comments: comments,
+        Date_of_Leave_From: fromDate,
+        Date_of_Leave_Till: toDate,
+        Approved_by_Manager_Name: approvedBy,
+        Manager_Comments: comments,
+    };
 }
 
 function getSheetsApi() {
@@ -87,6 +135,39 @@ async function getDepartments() {
     }
 }
 
+async function getAllEmployees() {
+    const departments = await getDepartments();
+    const excludedSheets = new Set(['Leaves']);
+    const employeeSheets = departments.filter((dept) => !excludedSheets.has(dept));
+    const employees = [];
+
+    for (const department of employeeSheets) {
+        const rows = await getSheetData(department);
+
+        rows.forEach((row) => {
+            const userId = getValue(row, ['User_id', 'User ID', 'UserId', 'Employee ID', 'Employee_ID']);
+            const userName = getValue(row, ['User_name', 'User Name', 'UserName', 'Name']);
+            const role = getValue(row, ['Role', 'User Role', 'User_Role']) || (
+                department === 'Admin' ? 'Admin' : department === 'Manager' ? 'Manager' : 'Employee'
+            );
+
+            if (!userId || !userName) {
+                return;
+            }
+
+            employees.push({
+                userId,
+                userName,
+                department,
+                role,
+                status: 'Active',
+            });
+        });
+    }
+
+    return employees;
+}
+
 async function getSheetData(sheetName) {
     const api = getSheetsApi();
     if (!api) return [];
@@ -125,6 +206,16 @@ router.get('/departments', async (req, res) => {
     } catch (error) {
         console.error('Error in /departments route:', error);
         res.status(500).json({ error: 'Failed to fetch departments' });
+    }
+});
+
+router.get('/employees', async (req, res) => {
+    try {
+        const employees = await getAllEmployees();
+        res.json(employees);
+    } catch (error) {
+        console.error('Error in /employees route:', error);
+        res.status(500).json({ error: 'Failed to fetch employees' });
     }
 });
 
@@ -277,25 +368,10 @@ async function ensureLeavesSheet() {
         if (!response.data.values || !response.data.values[0]) {
             await api.spreadsheets.values.update({
                 spreadsheetId: SPREADSHEET_ID,
-                range: `'Leaves'!A1:H1`,
+                range: `'Leaves'!A1:N1`,
                 valueInputOption: 'USER_ENTERED',
                 resource: {
-                    values: [[
-                        'Leave_ID',
-                        'User_ID',
-                        'User_Name',
-                        'Department',
-                        'Leave_Type',
-                        'From_Date',
-                        'To_Date',
-                        'Days',
-                        'Reason',
-                        'Status',
-                        'Requested_Date',
-                        'Approved_By',
-                        'Approval_Date',
-                        'Comments'
-                    ]],
+                    values: [LEAVES_HEADERS],
                 },
             });
         }
@@ -334,11 +410,11 @@ router.post('/leaves', async (req, res) => {
             userId,
             userName,
             department,
-            leaveType,
             fromDate,
             toDate,
-            days,
             reason,
+            leaveType,
+            days,
             'Pending',
             requestedDate,
             '',
@@ -393,7 +469,7 @@ router.get('/leaves', async (req, res) => {
             headers.forEach((header, index) => {
                 obj[header] = (row[index] || '').trim();
             });
-            return obj;
+            return normalizeLeaveRow(obj);
         });
 
         let filteredLeaves = leaves;
@@ -401,11 +477,11 @@ router.get('/leaves', async (req, res) => {
         if (role === 'Manager') {
             // Managers see pending leaves from their department to approve
             filteredLeaves = leaves.filter(l => 
-                l['Department'] === department && l['Status'] === 'Pending'
+                l.Department === department && l.Status === 'Pending'
             );
         } else {
             // Employees see only their own leaves
-            filteredLeaves = leaves.filter(l => l['User_ID'] === userId);
+            filteredLeaves = leaves.filter(l => l.User_ID === userId);
         }
 
         res.json(filteredLeaves);
@@ -464,10 +540,14 @@ router.patch('/leaves/:id', async (req, res) => {
         const status = action === 'approve' ? 'Approved' : 'Rejected';
 
         const updatedRow = [...rows[leaveIndex]];
-        updatedRow[9] = status; // Status column
-        updatedRow[11] = approvedBy; // Approved_By
+        while (updatedRow.length < LEAVES_HEADERS.length) {
+            updatedRow.push('');
+        }
+
+        updatedRow[9] = status; // Status
+        updatedRow[11] = approvedBy; // Approved_by_Manager_Name
         updatedRow[12] = approvalDate; // Approval_Date
-        updatedRow[13] = comments || ''; // Comments
+        updatedRow[13] = comments || ''; // Manager_Comments
 
         await api.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
@@ -490,6 +570,66 @@ router.patch('/leaves/:id', async (req, res) => {
             success: false,
             error: 'Failed to update leave status'
         });
+    }
+});
+
+router.post('/ai/chat', async (req, res) => {
+    try {
+        const { query, department, employeeName } = req.body || {};
+
+        if (!query) {
+            return res.status(400).json({ error: 'Missing required field: query' });
+        }
+
+        const pythonExecutable = process.env.PYTHON_EXECUTABLE || 'python';
+        const scriptPath = path.join(__dirname, '..', 'agents', 'AIChat.py');
+        const child = spawn(pythonExecutable, [scriptPath, '--json'], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (chunk) => {
+            stdout += chunk.toString();
+        });
+
+        child.stderr.on('data', (chunk) => {
+            stderr += chunk.toString();
+        });
+
+        child.on('error', (error) => {
+            console.error('Failed to start AI chat agent:', error);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Failed to start AI chat agent' });
+            }
+        });
+
+        child.on('close', (code) => {
+            if (res.headersSent) return;
+
+            if (code !== 0) {
+                console.error('AI chat agent failed:', stderr || stdout);
+                return res.status(500).json({ error: 'AI chat agent failed' });
+            }
+
+            try {
+                return res.json(JSON.parse(stdout));
+            } catch (error) {
+                console.error('AI chat agent returned invalid JSON:', stdout, error);
+                return res.status(500).json({ error: 'AI chat agent returned invalid response' });
+            }
+        });
+
+        child.stdin.write(JSON.stringify({
+            query,
+            department,
+            employee_name: employeeName,
+        }));
+        child.stdin.end();
+    } catch (error) {
+        console.error('Error in /ai/chat route:', error);
+        res.status(500).json({ error: 'Failed to process AI chat request' });
     }
 });
 

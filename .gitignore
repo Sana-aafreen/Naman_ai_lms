@@ -23,6 +23,15 @@ Backend/.env
 Backend/.env.*
 !Backend/.env.example
 
+# Databases and Python cache
+*.db
+**/__pycache__/
+**/.ruff_cache/
+Backend/data/generated_courses/
+Backend/calendar.db
+Backend/courses.db
+Backend/growth_tracker.db
+
 # OS and editor files
 .DS_Store
 Thumbs.db

@@ -1,0 +1,42 @@
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+
+# ── Auth & security ───────────────────────────────────────────────────────────
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.9
+
+# ── Environment ───────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Google APIs ───────────────────────────────────────────────────────────────
+google-generativeai>=0.5.0
+google-api-python-client>=2.126.0
+google-auth>=2.29.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+gspread>=6.1.0
+
+# ── AI / LLM ──────────────────────────────────────────────────────────────────
+groq>=0.9.0
+
+# ── PDF generation & processing ───────────────────────────────────────────────
+reportlab>=4.1.0
+pypdf>=4.2.0
+pdfplumber>=0.11.0
+
+# ── Data & search ─────────────────────────────────────────────────────────────
+numpy>=1.26.0
+scikit-learn>=1.4.0
+rank-bm25>=0.2.2
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pydantic>=2.7.0
+httpx>=0.27.0
+requests>=2.31.0
+aiofiles>=23.2.1
+
+# Database (optional)
+# Used by Backend/agents/course_database.py when COURSE_DB_URL is PostgreSQL.
+psycopg2-binary>=2.9.9

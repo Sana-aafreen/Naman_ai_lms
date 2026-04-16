@@ -26,6 +26,16 @@ copy .env.example .env
 npm start
 ```
 
+### Python agents (Course Generator, etc.)
+
+The Python code under `Backend/` uses a virtual environment at `Backend/venv` and dependencies from `Backend/requirements.txt`.
+
+```bash
+cd Backend
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
 ## Environment setup
 
 - Frontend variables live in `Frontend/.env`
