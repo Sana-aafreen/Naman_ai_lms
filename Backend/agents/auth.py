@@ -64,18 +64,28 @@ def authenticate_user(
     pwd = str(password).strip()
     dept = str(department).strip()
 
+    print(f"[Auth] Attempting login: ID='{uid}' (department: '{dept}')")
+
     query = {
-        "gsheet_uid": uid,
-        "name": {"$regex": f"^{name}$", "$options": "i"},
+        "gsheet_uid": {"$regex": f"^{uid}$", "$options": "i"},
         "gsheet_password": pwd
     }
+    # Note: department filtering is regex-based already (case-insensitive)
     if dept:
         query["department"] = {"$regex": f"^{dept}$", "$options": "i"}
 
     user = mongo_db.find_one("employees", query)
     
     if not user:
+        # Diagnostic: check if user exists at all (ignoring password)
+        exists = mongo_db.find_one("employees", {"gsheet_uid": {"$regex": f"^{uid}$", "$options": "i"}})
+        if exists:
+            print(f"[Auth] FAILED: User '{uid}' found, but password or department mismatched.")
+        else:
+            print(f"[Auth] FAILED: User '{uid}' not found in 'employees' collection.")
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    print(f"[Auth] SUCCESS: User '{uid}' authenticated as role '{user.get('role')}'")
 
     # Convert MongoDB _id to string or remove it
     if "_id" in user:

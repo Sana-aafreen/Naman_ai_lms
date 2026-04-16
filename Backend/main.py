@@ -174,6 +174,14 @@ async def lifespan(app: FastAPI):
         print("  [Background] Syncing employees from Google Sheet...")
         try:
             sync_employees_from_gsheet()
+            
+            # Diagnostic: how many employees do we have now?
+            try:
+                emp_count = mongo_db.count_documents("employees")
+                print(f"  [Background] Sync complete. Total employees in database: {emp_count}")
+            except Exception:
+                pass
+
             print("  [Background] Initializing Google APIs...")
             get_gcal_api()
         except Exception as e:
