@@ -60,7 +60,7 @@ def authenticate_user(
 ) -> dict[str, Any]:
     """Validate employee credentials against the MongoDB employees collection."""
     uid = str(user_id).strip()
-    name = str(user_name).strip().lower()
+    name = str(user_name).strip()
     pwd = str(password).strip()
     dept = str(department).strip()
 

@@ -239,36 +239,51 @@ def sync_employees_from_gsheet():
         print("  [Sync] WARNING: No departments found - using seeded employees or existing data.")
         return
     
-    synced = 0
-    all_sheet_data = [] # For "save all sheets" requirement
+    def find_value(r, keys, default=""):
+        # Try exact, then case-insensitive, then loose
+        target_keys = [k.lower().strip().replace(" ", "_") for k in keys]
+        for k_raw, v in r.items():
+            k_clean = str(k_raw).lower().strip().replace(" ", "_").replace(".", "_")
+            if k_clean in target_keys:
+                return str(v).strip()
+        return default
 
     for idx, dept in enumerate(departments):
         color = AVATAR_COLORS[idx % len(AVATAR_COLORS)]
-        rows = gsheet_get_rows(dept)
+        try:
+            rows = gsheet_get_rows(dept)
+        except Exception:
+            continue
         
-        # Track all raw data as well
+        # Track all raw data
         all_sheet_data.append({"sheet_name": dept, "rows": rows, "updated_at": mongo_db.now_iso()})
 
         for row in rows:
-            uid  = str(row.get("User_id", "")).strip()
-            name = str(row.get("User_name", "")).strip()
+            uid  = find_value(row, ["User_id", "id", "uid", "emp_id", "employee_id"])
+            name = find_value(row, ["User_name", "name", "employee_name", "full_name"])
+            pwd  = find_value(row, ["Password", "pass", "pwd"])
+
             if not uid or not name:
                 continue
-            email = str(row.get("Email", 
-                f"{uid.lower().replace(' ', '.')}@company.com")).strip()
-            role  = str(row.get("Role", "employee")).strip().lower()
+
+            email = find_value(row, ["Email", "e-mail", "mail"])
+            if not email:
+                email = f"{uid.lower().replace(' ', '.')}@company.com"
+
+            role  = find_value(row, ["Role", "access", "type"], "employee").lower()
             
             # Upsert into MongoDB
             mongo_db.update_one(
                 "employees",
-                {"email": email},
+                {"gsheet_uid": uid}, # Query by UID now as it's the primary stable ID
                 {"$set": {
                     "name": name,
                     "department": dept,
                     "role": role,
                     "avatar_color": color,
                     "gsheet_uid": uid,
-                    "gsheet_password": str(row.get("Password", "")),
+                    "gsheet_password": pwd,
+                    "email": email,
                     "updated_at": mongo_db.now_iso()
                 }},
                 upsert=True
