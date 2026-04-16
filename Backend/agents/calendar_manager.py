@@ -38,6 +38,9 @@ Run:
 
 import mongo_db
 from bson import ObjectId
+import csv
+import os
+from pathlib import Path
 import base64
 import json
 import os
@@ -222,11 +225,24 @@ def gsheet_get_rows(sheet_name: str) -> list:
         except Exception:
             return []
 
+# -- Helpers ---------------------------------------------------------------------
+
+def find_value(r, keys, default=""):
+    # Try exact, then case-insensitive, then loose
+    target_keys = [k.lower().strip().replace(" ", "_").replace(".", "_") for k in keys]
+    for k_raw, v in r.items():
+        k_clean = str(k_raw).lower().strip().replace(" ", "_").replace(".", "_")
+        if k_clean in target_keys:
+            return str(v).strip()
+    return default
+
+
 def sync_employees_from_gsheet():
-    print(f"  [Sync] Starting employee synchronization at {mongo_db.now_iso()}")
-    api = get_sheets_api()
-    if not api:
-        print("  [Sync] ERROR: No Sheets API available. (Check GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_API_KEY)")
+    """Sync employee roster from Google Sheets to MongoDB as a background task."""
+    print("  [Sync] Starting background sync from Google Sheets...")
+    
+    if not SPREADSHEET_ID:
+        print("  [Sync] No SPREADSHEET_ID set - skipping Sheets sync.")
         return
     
     try:
@@ -239,15 +255,9 @@ def sync_employees_from_gsheet():
         print("  [Sync] WARNING: No departments found - using seeded employees or existing data.")
         return
     
-    def find_value(r, keys, default=""):
-        # Try exact, then case-insensitive, then loose
-        target_keys = [k.lower().strip().replace(" ", "_") for k in keys]
-        for k_raw, v in r.items():
-            k_clean = str(k_raw).lower().strip().replace(" ", "_").replace(".", "_")
-            if k_clean in target_keys:
-                return str(v).strip()
-        return default
-
+    synced = 0
+    all_sheet_data = [] # For "save all sheets" requirement
+    
     for idx, dept in enumerate(departments):
         color = AVATAR_COLORS[idx % len(AVATAR_COLORS)]
         try:

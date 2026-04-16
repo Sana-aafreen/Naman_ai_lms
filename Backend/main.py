@@ -173,6 +173,15 @@ async def lifespan(app: FastAPI):
     
     # Run heavy sync in background to avoid blocking port binding
     def run_sync_blocking():
+        from agents.calendar_manager import sync_employees_from_gsheet, sync_employees_from_csv, get_gcal_api
+        
+        # 1. Sync from local CSVs first (high reliability)
+        try:
+            sync_employees_from_csv()
+        except Exception as e:
+            print(f"  [Background] Local CSV sync failed: {e}")
+
+        # 2. Sync from Google Sheets (optional real-time source)
         print("  [Background] Syncing employees from Google Sheet...")
         try:
             sync_employees_from_gsheet()
@@ -187,7 +196,7 @@ async def lifespan(app: FastAPI):
             print("  [Background] Initializing Google APIs...")
             get_gcal_api()
         except Exception as e:
-            print(f"  [Background] Sync failed: {e}")
+            print(f"  [Background] Sheets sync failed: {e}")
 
     # Use to_thread for safe non-blocking execution of sync tasks
     asyncio.create_task(asyncio.to_thread(run_sync_blocking))

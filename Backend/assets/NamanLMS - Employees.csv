@@ -1,0 +1,7 @@
+User_id,User_name,Password,Role,Email,Dep
+EMP001,Naman,naman123,Employee,naman@namandarshan.com,Sales
+EMP002,John Doe,john123,Employee,john@namandarshan.com,Sales
+EMP003,Sarah Smith,sarah123,Employee,sarah@namandarshan.com,Marketing
+EMP004,Priya Sharma,priya123,Employee,priya@namandarshan.com,HR
+EMP005,Raj Kumar,raj123,Employee,raj@namandarshan.com,Operation
+EMP006,Umang,Umang123,Employee,umang@namandarhsna.com,Finance
