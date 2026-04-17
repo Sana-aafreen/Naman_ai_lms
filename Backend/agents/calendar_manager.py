@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-╔══════════════════════════════════════════════════════════════╗
-║   🗓️  CALENDAR MANAGER  —  GenAI Agent                       ║
-║   Outlook-style | Leave Management | Meeting Scheduling      ║
-║   Powered by Gemini AI  ×  Google Calendar                   ║
-╚══════════════════════════════════════════════════════════════╝
+# --------------------------------------------------------------
+#   CALENDAR MANAGER  -  GenAI Agent
+#   Outlook-style | Leave Management | Meeting Scheduling
+#   Powered by Gemini AI  x  Google Calendar
+# --------------------------------------------------------------
 
 Setup:
   pip install fastapi uvicorn google-generativeai python-dotenv \

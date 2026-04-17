@@ -2045,6 +2045,7 @@ class CourseGeneratorAgent:
     def generate_html_course_package(
         self,
         department: str,
+        topic: Optional[str] = None,
         related_queries: Optional[list[str]] = None,
         output_dir: Optional[Path] = None,
         max_site_pages: int = 5,
@@ -2053,15 +2054,14 @@ class CourseGeneratorAgent:
         save_to_disk: bool = False,
     ) -> dict[str, Any]:
         dept = department.strip()
-        print(f"\n  [CourseGen v5.1] Generating HTML course: {dept}")
+        top  = (topic or f"{dept} General Training").strip()
+        print(f"\n  [CourseGen v5.1] Generating HTML course: {dept} | Topic: {top}")
 
         site_srcs = self._collect_site_sources(dept, max_pages=max_site_pages)
         web_srcs  = self._collect_related_web_sources(dept, related_queries or [], max_pages=max_web_pages)
         sop_srcs  = self._collect_sop_sources(dept)
         all_srcs  = [*site_srcs, *web_srcs, *sop_srcs] or [self._build_fallback_source(dept)]
-        print(f"  [CourseGen v5.1] Sources: {len(all_srcs)} ({len(site_srcs)} site, {len(web_srcs)} web, {len(sop_srcs)} SOP)")
-
-        course_json = self._generate_html_course_json(dept, all_srcs)
+        course_json = self._generate_html_course_json(dept, all_srcs, topic=top)
         course_json["department"] = dept
 
         modules    = course_json.get("modules", [])
@@ -2337,7 +2337,7 @@ class CourseGeneratorAgent:
     # ------------------------------------------------------------------------
 
     def _build_html_course_prompt(
-        self, department: str, sources: list[SourceDocument]
+        self, department: str, sources: list[SourceDocument], topic: str
     ) -> tuple[list[dict], str]:
         blocks = []
         for i, s in enumerate(sources[:6], 1):
@@ -2353,6 +2353,7 @@ class CourseGeneratorAgent:
         )
         user = (
             f"Department: {department}\n"
+            f"Specific Topic: {topic}\n"
             f"Target Audience: {department} department employees at NamanDarshan\n"
             f"Level: Intermediate\n"
             f"Number of Modules: 5\n"
@@ -2392,9 +2393,9 @@ class CourseGeneratorAgent:
         return True
 
     def _generate_html_course_json(
-        self, department: str, sources: list[SourceDocument]
+        self, department: str, sources: list[SourceDocument], topic: str
     ) -> dict:
-        messages, flat = self._build_html_course_prompt(department, sources)
+        messages, flat = self._build_html_course_prompt(department, sources, topic=topic)
         
         # Try Groq (Fastest)
         result = self._call_groq_key2(messages)

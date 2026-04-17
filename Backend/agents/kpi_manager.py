@@ -194,33 +194,28 @@ def _calc_work_score(employee_id: str, month: str) -> tuple[float, Optional[dict
 def _calc_growth_score(employee_id: str) -> tuple[float, int, list[str], str]:
     """Returns (growth_score, streak, badges, level)."""
     try:
-        _tracker_data_path = _AGENTS_DIR.parent / "data" / "generated_courses" / "growth_data.json"
-        if _tracker_data_path.exists():
-            data = json.loads(_tracker_data_path.read_text(encoding="utf-8"))
-            emp = data.get("employees", {}).get(employee_id, {})
-        else:
-            emp = {}
-    except Exception:
-        emp = {}
-
-    streak  = emp.get("streaks", {}).get("current", 0)
-    badges  = emp.get("badges", [])
-    level   = emp.get("level", "Beginner")   # may not be stored in JSON; derive below
-
-    # Derive level from completions count
-    completions = emp.get("completions", [])
-    n = len(completions)
-    if n >= 20:    level = "Senior"
-    elif n >= 10:  level = "Intermediate"
-    elif n >= 4:   level = "Associate"
-    else:          level = "Beginner"
-
-    level_score   = LEVEL_SCORES.get(level, 20)
-    badge_score   = min(len(badges) * 10, 40)
-    streak_score  = min(streak * 5, 20)
-    growth_score  = min(100.0, float(level_score + badge_score + streak_score))
-
-    return growth_score, streak, badges, level
+        from .Growth_tracker import get_employee_progress_report
+        report = get_employee_progress_report(employee_id)
+        
+        streak  = report.get("current_streak", 0)
+        badges  = report.get("badges", [])
+        
+        # completions count
+        n = report.get("courses_completed", 0)
+        if n >= 20:    level = "Senior"
+        elif n >= 10:  level = "Intermediate"
+        elif n >= 4:   level = "Associate"
+        else:          level = "Beginner"
+        
+        level_score   = LEVEL_SCORES.get(level, 20)
+        badge_score   = min(len(badges) * 10, 40)
+        streak_score  = min(streak * 5, 20)
+        growth_score  = min(100.0, float(level_score + badge_score + streak_score))
+        
+        return growth_score, streak, badges, level
+    except Exception as e:
+        print(f"  [KPI] Error calculating growth score via GrowthTracker: {e}")
+        return 20.0, 0, [], "Beginner"
 
 
 # ==============================================================================

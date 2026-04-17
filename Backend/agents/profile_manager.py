@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 class CourseGenerationRequest(BaseModel):
     department: str
+    topic: Optional[str] = None
     relatedQueries: Optional[List[str]] = None
 
 class PublishCourseRequest(BaseModel):

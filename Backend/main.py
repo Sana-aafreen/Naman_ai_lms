@@ -83,6 +83,17 @@ Integrated Agents & Services:
 import json
 import os
 import sys
+
+def safe_print(*args, **kwargs):
+    """Print to stdout sanitizing any unicode characters if it fails."""
+    try:
+        print(*args, **kwargs)
+    except UnicodeEncodeError:
+        safe_args = [
+            str(arg).encode('ascii', 'ignore').decode('ascii') 
+            for arg in args
+        ]
+        print(*safe_args, **kwargs)
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -147,13 +158,13 @@ from fastapi.middleware.cors import CORSMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # -- startup ------------------------------------------
-    print("\n  NamanDarshan LMS | General Startup")
-    print("  " + ("-" * 52))
+    safe_print("\n  NamanDarshan LMS | General Startup")
+    safe_print("  " + ("-" * 52))
 
     # Initialize MongoDB Connection
     try:
         init_mongodb()
-        print("  [Main] MongoDB initialized")
+        safe_print("  [Main] MongoDB initialized")
     except Exception as e:
         safe_err = str(e).encode('ascii', 'ignore').decode('ascii')
         print(f"  [Main] MongoDB initialization warning: {safe_err}")
@@ -203,8 +214,8 @@ async def lifespan(app: FastAPI):
     # Use to_thread for safe non-blocking execution of sync tasks
     asyncio.create_task(asyncio.to_thread(run_sync_blocking))
     
-    port = int(os.environ.get("PORT", 8000))
-    print(f"  Server available on port {port} (Binding complete)\n")
+    port = int(os.environ.get("PORT", os.environ.get("BACKEND_PORT", 8000)))
+    safe_print(f"  Server available on port {port} (Binding complete)\n")
     yield
 
 app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
@@ -564,13 +575,15 @@ async def generate_course(req: CourseGenerationRequest, authorization: Optional[
     
     agent = get_course_generator_agent()
     try:
-        print(f" Generating course for department: {req.department}")
-        print(f" Queries: {req.relatedQueries or []}")
-        result = agent.generate_course_pdf(
+        safe_print(f" Generating course for department: {req.department}")
+        safe_print(f" Queries: {req.relatedQueries or []}")
+        # Updated to use HTML package generator instead of older PDF one
+        result = agent.generate_html_course_package(
             department=req.department,
             related_queries=req.relatedQueries or [],
+            save_to_disk=True
         )
-        print(f"[OK] Course generated successfully: {result.get('pdf_filename', 'unknown')}")
+        safe_print(f"[OK] Course generated successfully: {result.get('slug', 'unknown')}")
         return result
     except Exception as exc:
         print(f"[ERROR] Course generation error: {type(exc).__name__}: {exc}")
