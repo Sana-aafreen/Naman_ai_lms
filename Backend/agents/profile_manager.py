@@ -56,6 +56,14 @@ class MonitoringInsightsRequest(BaseModel):
     role:       str
     department: str
 
+class KPIWorkRatingRequest(BaseModel):
+    employee_id: str
+    department:  str
+    month:       str
+    work_target: float
+    work_actual: float
+    notes:       Optional[str] = ""
+
 # -- Logic -------------------------------------------------------------------
 
 def get_user_profile(user_id: str) -> Dict[str, Any]:

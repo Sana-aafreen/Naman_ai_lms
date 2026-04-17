@@ -116,7 +116,7 @@ from agents.auth import authenticate_and_issue_token
 load_dotenv(BASE_DIR / ".env")
 
 # Initialize MongoDB
-from mongo_db import init_mongodb, get_db as get_mongo_db  # noqa: E402
+from mongo_db import init_mongodb, get_db as get_mongo_db, find_one  # noqa: E402
 
 from agents.AIChat import AIChatAgent, ORIGINAL_SOPS_DIR, load_sops  # noqa: E402
 from agents.Career import router as career_router  # noqa: E402
@@ -149,6 +149,7 @@ from agents.profile_manager import (
     ProfileUpdateRequest,
     MonitoringChatRequest,
     MonitoringInsightsRequest,
+    KPIWorkRatingRequest,
 )
 
 from fastapi import FastAPI
@@ -908,15 +909,15 @@ async def kpi_employee(
     current_user = _get_current_user(authorization)
     if current_user.get("role") not in {"Manager", "Admin"}:
         raise HTTPException(status_code=403, detail="Managers and Admins only")
-    # Determine department from calendar.db
-    from agents.calendar_manager import get_db as _cal_get_db
-    conn = _cal_get_db()
-    row = conn.execute(
-        "SELECT department FROM employees WHERE gsheet_uid=? OR CAST(id AS TEXT)=?",
-        (employee_id, employee_id),
-    ).fetchone()
-    conn.close()
-    department = row["department"] if row else current_user.get("department", "")
+
+    # Determine department from MongoDB
+    emp = find_one("employees", {"$or": [{"gsheet_uid": employee_id}, {"id": employee_id}]})
+    department = emp.get("department", "") if emp else ""
+    
+    if not department:
+        # Fallback to current user's department or generic
+        department = current_user.get("department", "")
+
     return compute_employee_kpi(employee_id, department, month)
 
 
