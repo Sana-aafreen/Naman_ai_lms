@@ -88,9 +88,7 @@ from pydantic import BaseModel
 # ════════════════════════════════════════════════════════════
 #  CONFIG
 # ════════════════════════════════════════════════════════════
-GEMINI_API_KEY   = os.getenv("CALENDAR_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
-GEMINI_API_KEY   = os.getenv("CALENDAR_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+# (Gemini config moved to services.ai_service)
 
 SPREADSHEET_ID   = os.getenv("SPREADSHEET_ID", "1ObVuVLXelgrKjKTJC3AXpv1YPxbWXO03wt5lXY8I-Po")
 GOOGLE_API_KEY   = os.getenv("GOOGLE_API_KEY", "")
@@ -2070,54 +2068,7 @@ except ImportError as e:
     print(f"WARN: LMS modules not fully available: {e}")
     _LMS_AVAILABLE = False
 
-# ── Gemini setup ──────────────────────────────────────────────────────────────
-try:
-    from google import genai  # type: ignore
-
-    _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-    _gemini_client = None
-    _gemini_model_name = "gemini-1.5-flash"
-    
-    if _GEMINI_KEY:
-        _gemini_client = genai.Client(api_key=_GEMINI_KEY)
-        for model_name in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
-            try:
-                _gemini_client.models.generate_content(model=model_name, contents="test")
-                _gemini_model_name = model_name
-                print(f"[Gemini] Using model: {_gemini_model_name}")
-                break
-            except Exception:
-                continue
-except ImportError:
-    _gemini_client = None
-except Exception as e:
-    print(f"⚠️  Gemini initialization error: {e}")
-    _gemini_client = None
-
-
-def _gemini(prompt: str, system: str = "") -> str:
-    if _gemini_client is None:
-        return _gemini_fallback(prompt, system)
-    try:
-        full = f"{system}\n\n{prompt}" if system else prompt
-        return _gemini_client.models.generate_content(model=_gemini_model_name, contents=full).text.strip()
-    except Exception as exc:  # noqa: BLE001
-        print(f"Gemini error: {exc}")
-        return _gemini_fallback(prompt, system)
-
-
-def _gemini_fallback(prompt: str, system: str = "") -> str:
-    """Fallback response generator when Gemini is unavailable."""
-    if "progress" in prompt.lower() or "analysis" in prompt.lower():
-        return "📊 Your learning journey is progressing well! Here's what I see: You're building consistent habits and exploring new topics. Keep up the momentum by setting specific weekly goals for yourself. Remember, quality learning matters more than quantity. Pick one area to focus on this week and dive deep!"
-    elif "recommend" in prompt.lower() or "course" in prompt.lower():
-        return "📚 Great question! Based on your profile, I'd suggest exploring advanced courses in your field. Start with foundational courses if you're new, then move to specialized topics. What specific skills are you trying to develop?"
-    elif "quiz" in prompt.lower() or "score" in prompt.lower():
-        return "🎯 Quiz performance is key to mastery! Try these strategies: Review each wrong answer deeply, practice daily for 30 mins, and take practice tests in your weak areas. Consistency beats intensity every time!"
-    elif "goal" in prompt.lower() or "plan" in prompt.lower():
-        return "🎯 Let's build a smart learning plan! First, tell me your main career goal this quarter. Then share 2-3 skills you want to develop. I'll create a personalized roadmap with specific courses and timelines."
-    else:
-        return "I'm here to help you grow! Ask me about your learning progress, course recommendations, quiz strategies, or goal planning. What would you like to know?"
+from services.ai_service import get_gemini_response as _gemini
 
 
 # ── Profile DB helpers ────────────────────────────────────────────────────────

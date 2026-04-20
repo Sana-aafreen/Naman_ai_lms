@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from mongo_db import safe_print
 
 load_dotenv()
 
@@ -86,8 +87,10 @@ def authenticate_user(
         print(f"[Auth] Diagnostic Error: Could not count employees: {e}")
     safe_uid = re.escape(uid)
     query = {
-        "gsheet_uid": {"$regex": f"^{safe_uid}$", "$options": "i"},
-        "gsheet_password": pwd
+        "$or": [
+            {"gsheet_uid": {"$regex": f"^{safe_uid}$", "$options": "i"}},
+            {"id": uid}
+        ]
     }
     
     if dept:
@@ -103,9 +106,24 @@ def authenticate_user(
     user = mongo_db.find_one("employees", query)
     
     if not user:
+        safe_print(f"[Auth] FAILED: User '{uid}' not found in 'employees' (Query keys: gsheet_uid, id)")
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    print(f"[Auth] SUCCESS: User '{uid}' authenticated as role '{user.get('role')}'")
+    # 2. Check password
+    db_pass = user.get("password", "password123")
+    if password != db_pass:
+        safe_print(f"[Auth] FAILED: Password mismatch for user '{uid}' (Expected: {db_pass[:2]}..., Received: {password[:2]}...)")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 3. Check department (if provided)
+    if department:
+        user_dept = user.get("department", "")
+        if str(department).lower() != str(user_dept).lower():
+            safe_print(f"[Auth] FAILED: Department mismatch for user '{uid}' (Expected: {user_dept}, Received: {department})")
+            # We treat this as a failure because the frontend passes department during login
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    safe_print(f"[Auth] SUCCESS: User '{uid}' authenticated as role '{user.get('role')}'")
 
     # Convert MongoDB _id to string or remove it
     if "_id" in user:

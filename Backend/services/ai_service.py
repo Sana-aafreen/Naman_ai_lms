@@ -1,0 +1,95 @@
+import os
+import builtins
+from typing import Optional
+from dotenv import load_dotenv
+
+# Load env in case it's not loaded
+load_dotenv()
+
+def safe_print(*args, **kwargs):
+    """Fallback safe print for unicode issues."""
+    try:
+        builtins.print(*args, **kwargs)
+    except UnicodeEncodeError:
+        safe_args = [
+            str(arg).encode('ascii', 'ignore').decode('ascii') 
+            for arg in args
+        ]
+        builtins.print(*safe_args, **kwargs)
+
+class GeminiService:
+    def __init__(self):
+        self.client = None
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.api_key = os.getenv("GEMINI_API_KEY", "")
+        
+        # Priority fallback models
+        self.fallback_models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        
+        if not self.api_key:
+            safe_print("⚠️  [AI Service] GEMINI_API_KEY not found in environment.")
+            return
+
+        try:
+            from google import genai
+            self.client = genai.Client(api_key=self.api_key)
+            
+            # Verify connectivity and select best available model
+            test_models = [self.model_name] + [m for m in self.fallback_models if m != self.model_name]
+            
+            for m in test_models:
+                try:
+                    # Low-token test to verify model availability
+                    self.client.models.generate_content(model=m, contents="ping")
+                    self.model_name = m
+                    safe_print(f"✅ [AI Service] Gemini initialized with model: {self.model_name}")
+                    break
+                except Exception as e:
+                    safe_print(f"⚠️  [AI Service] Model {m} not available: {e}")
+                    continue
+            
+            if not self.model_name:
+                safe_print("❌ [AI Service] No valid Gemini models could be initialized.")
+                self.client = None
+                
+        except ImportError:
+            safe_print("⚠️  [AI Service] google-genai library not installed. Install with: pip install google-genai")
+            self.client = None
+        except Exception as e:
+            safe_print(f"❌ [AI Service] Initialization error: {e}")
+            self.client = None
+
+    def generate_content(self, prompt: str, system: str = "") -> str:
+        if not self.client:
+            return self.get_fallback_response(prompt)
+            
+        try:
+            full_prompt = f"{system}\n\n{prompt}" if system else prompt
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt
+            )
+            return response.text.strip()
+        except Exception as e:
+            safe_print(f"❌ [AI Service] Generation error: {e}")
+            return self.get_fallback_response(prompt)
+
+    def get_fallback_response(self, prompt: str) -> str:
+        """Heuristic-based fallback when AI is unavailable."""
+        p = prompt.lower()
+        if "progress" in p or "analysis" in p or "streak" in p:
+            return "📊 Your learning journey is looking strong! You've been building consistent habits. To accelerate your growth, try revisiting topics you found challenging and setting clear weekly milestones. Every small step counts towards your ultimate goal!"
+        elif "recommend" in p or "course" in p or "next" in p:
+            return "📚 I suggest exploring courses that align with your current department goals. Based on common paths, advanced modules in your field would be a great next step. What specific skill are you looking to master today?"
+        elif "quiz" in p or "score" in p or "test" in p:
+            return "🎯 Consistent practice is the key to high quiz scores! Focus on understanding the core concepts before attempting the quiz. If you hit a blocker, review the specific module and try again. You've got this!"
+        elif "goal" in p or "plan" in p or "future" in p:
+            return "🎯 A clear roadmap makes any goal achievable. Let's break down your career objectives into actionable steps. Tell me one major skill you want to achieve this quarter, and we can build a plan together."
+        else:
+            return "I'm your NamanDarshan LMS coach! I can help with progress tracking, course recommendations, and career planning. Ask me anything about your professional development journey!"
+
+# Singleton instance
+ai_service = GeminiService()
+
+def get_gemini_response(prompt: str, system: str = "") -> str:
+    return ai_service.generate_content(prompt, system)

@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+import sys
+import io
+import builtins
+
+# Force UTF-8 encoding for stdout and stderr to prevent UnicodeEncodeErrors on Windows
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 """
 NamanDarshan LMS - Main FastAPI Application
 ===============================================
@@ -87,13 +96,13 @@ import sys
 def safe_print(*args, **kwargs):
     """Print to stdout sanitizing any unicode characters if it fails."""
     try:
-        print(*args, **kwargs)
+        builtins.print(*args, **kwargs)
     except UnicodeEncodeError:
         safe_args = [
             str(arg).encode('ascii', 'ignore').decode('ascii') 
             for arg in args
         ]
-        print(*safe_args, **kwargs)
+        builtins.print(*safe_args, **kwargs)
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -134,6 +143,7 @@ from agents.Growth_tracker import (  # noqa: E402
 from agents.Monitoring_agent import MonitoringAgent  # noqa: E402
 from agents.calendar_manager import router as calendar_router, _get_calendar_events  # noqa: E402
 from whats_new_routes import router as whats_new_router  # noqa: E402
+from services.sheets import get_departments, get_sheets_api
 
 from agents.kpi_manager import (  # noqa: E402
     init_kpi_db,
@@ -168,7 +178,7 @@ async def lifespan(app: FastAPI):
         safe_print("  [Main] MongoDB initialized")
     except Exception as e:
         safe_err = str(e).encode('ascii', 'ignore').decode('ascii')
-        print(f"  [Main] MongoDB initialization warning: {safe_err}")
+        safe_print(f"  [Main] MongoDB initialization warning: {safe_err}")
 
     import asyncio
     from agents.calendar_manager import init_db, sync_employees_from_gsheet, get_gcal_api
@@ -181,36 +191,39 @@ async def lifespan(app: FastAPI):
         init_growth_tracker_db()
         init_kpi_db()
     except Exception as e:
-        print(f"  [Main] DB Schema init warning: {e}")
+        safe_print(f"  [Main] DB Schema init warning: {e}")
     
     # Run heavy sync in background to avoid blocking port binding
     def run_sync_blocking():
-        from agents.calendar_manager import sync_employees_from_gsheet, sync_employees_from_csv, get_gcal_api
+        from agents.calendar_manager import (
+            sync_employees_from_gsheet, 
+            sync_employees_from_csv, 
+            sync_leaves_from_gsheet,
+            get_gcal_api
+        )
         
         # 1. Sync from Google Sheets (Primary source)
-        print("  [Background] Syncing employees from Google Sheet...")
+        safe_print("  [Background] Syncing database from Google Sheet...")
         try:
             sync_employees_from_gsheet()
+            sync_leaves_from_gsheet() # Added for KPI Attendance tracking
         except Exception as e:
-            print(f"  [Background] Google Sheets sync failed: {e}")
+            safe_print(f"  [Background] Google Sheets sync failed: {e}")
 
         # 2. Sync from local CSVs (Secondary/Fallback)
         try:
             sync_employees_from_csv()
-        except Exception as e:
-            print(f"  [Background] Local CSV sync failed: {e}")
-            
             # Diagnostic: how many employees do we have now?
             try:
                 emp_count = mongo_db.count_documents("employees")
-                print(f"  [Background] Sync complete. Total employees in database: {emp_count}")
+                safe_print(f"  [Background] Sync complete. Total employees in database: {emp_count}")
             except Exception:
                 pass
-
-            print("  [Background] Initializing Google APIs...")
+            
+            safe_print("  [Background] Initializing Google APIs...")
             get_gcal_api()
         except Exception as e:
-            print(f"  [Background] Sheets sync failed: {e}")
+            safe_print(f"  [Background] CSV/API initialization failed: {e}")
 
     # Use to_thread for safe non-blocking execution of sync tasks
     asyncio.create_task(asyncio.to_thread(run_sync_blocking))
@@ -244,8 +257,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code = exc.status_code
         content = {"detail": exc.detail}
     else:
-        print(f"\n[ERROR] Unhandled Exception at {request.url}")
-        print(traceback.format_exc())
+        safe_print(f"\n[ERROR] Unhandled Exception at {request.url}")
+        safe_print(traceback.format_exc())
         status_code = 500
         content = {"detail": "Internal Server Error. Check server logs for details."}
     
@@ -270,50 +283,7 @@ from agents.Course_generator import router as course_gen_router
 app.include_router(course_gen_router)
 
 
-# -- Gemini setup --------------------------------------------------------------
-
-try:
-    from google import genai  # type: ignore
-
-    _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-    _gemini_client = None
-    _GEMINI_MODEL_NAME = "gemini-1.5-flash"
-
-    if _GEMINI_KEY:
-        _gemini_client = genai.Client(api_key=_GEMINI_KEY)
-        print(f"[OK] Gemini client initialised (model: {_GEMINI_MODEL_NAME})")
-    else:
-        print("[WARN]  GEMINI_API_KEY not set. Falling back to mock responses.")
-except ImportError:
-    _gemini_client = None
-except Exception as e:
-    print(f"[WARN]  Gemini initialisation error: {e}")
-    _gemini_client = None
-
-
-def _gemini(prompt: str, system: str = "") -> str:
-    if _gemini_client is None:
-        return _gemini_fallback(prompt, system)
-    try:
-        full = f"{system}\n\n{prompt}" if system else prompt
-        return _gemini_client.models.generate_content(model=_GEMINI_MODEL_NAME, contents=full).text.strip()
-    except Exception as exc:  # noqa: BLE001
-        print(f"Gemini error: {exc}")
-        return _gemini_fallback(prompt, system)
-
-
-def _gemini_fallback(prompt: str, system: str = "") -> str:
-    """Fallback response generator when Gemini is unavailable."""
-    if "progress" in prompt.lower() or "analysis" in prompt.lower():
-        return " Your learning journey is progressing well! Here's what I see: You're building consistent habits and exploring new topics. Keep up the momentum by setting specific weekly goals for yourself. Remember, quality learning matters more than quantity. Pick one area to focus on this week and dive deep!"
-    elif "recommend" in prompt.lower() or "course" in prompt.lower():
-        return " Great question! Based on your profile, I'd suggest exploring advanced courses in your field. Start with foundational courses if you're new, then move to specialized topics. What specific skills are you trying to develop?"
-    elif "quiz" in prompt.lower() or "score" in prompt.lower():
-        return " Quiz performance is key to mastery! Try these strategies: Review each wrong answer deeply, practice daily for 30 mins, and take practice tests in your weak areas. Consistency beats intensity every time!"
-    elif "goal" in prompt.lower() or "plan" in prompt.lower():
-        return " Let's build a smart learning plan! First, tell me your main career goal this quarter. Then share 2-3 skills you want to develop. I'll create a personalized roadmap with specific courses and timelines."
-    else:
-        return "I'm here to help you grow! Ask me about your learning progress, course recommendations, quiz strategies, or goal planning. What would you like to know?"
+from services.ai_service import get_gemini_response as _gemini
 
 
 # -- Profile DB helpers --------------------------------------------------------
@@ -451,8 +421,14 @@ async def login_alias(req: LoginRequest):
     except HTTPException as e:
         raise e
     except Exception as e:
-        print(f"[Login] Error: {e}")
+        safe_print(f"[Login] Error: {e}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+@app.get("/api/departments")
+async def list_departments():
+    """List all available departments for the login dropdown."""
+    return get_departments()
 
 
 @app.get("/api/employees")
@@ -514,7 +490,7 @@ async def get_employees(authorization: Optional[str] = Header(default=None)):
         }
 
     except Exception as e:
-        print(f"Error fetching employees: {e}")
+        safe_print(f"Error fetching employees: {e}")
         return {
             "success": False,
             "error": str(e),
@@ -587,7 +563,7 @@ async def generate_course(req: CourseGenerationRequest, authorization: Optional[
         safe_print(f"[OK] Course generated successfully: {result.get('slug', 'unknown')}")
         return result
     except Exception as exc:
-        print(f"[ERROR] Course generation error: {type(exc).__name__}: {exc}")
+        safe_print(f"[ERROR] Course generation error: {type(exc).__name__}: {exc}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Course generation failed: {str(exc)}") from exc
@@ -980,11 +956,22 @@ async def kpi_rate(
 
 # -- Entry point ---------------------------------------------------------------
 
+def safe_print(*args, **kwargs):
+    """Print to stdout sanitizing any unicode characters if it fails."""
+    try:
+        builtins.print(*args, **kwargs)
+    except UnicodeEncodeError:
+        safe_args = [
+            str(arg).encode('ascii', 'ignore').decode('ascii') 
+            for arg in args
+        ]
+        builtins.print(*safe_args, **kwargs)
+
 # Register Profile router
 app.include_router(profile_router)
 
 if __name__ == "__main__":
     # Use the current app instance directly to avoid importing the module again.
     port = int(os.environ.get("PORT", 8000))
-    print(f"Starting uvicorn on port {port}...")
+    safe_print(f"Starting uvicorn on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
