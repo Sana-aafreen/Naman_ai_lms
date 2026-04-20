@@ -34,6 +34,17 @@ load_dotenv()
 
 # -- Configuration -------------------------------------------------------------
 
+def safe_print(*args, **kwargs):
+    """Print to stdout sanitizing any unicode characters if it fails."""
+    try:
+        print(*args, **kwargs)
+    except UnicodeEncodeError:
+        safe_args = [
+            str(arg).encode('ascii', 'ignore').decode('ascii') 
+            for arg in args
+        ]
+        print(*safe_args, **kwargs)
+
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 MONGODB_DB = os.getenv("MONGODB_DB", "naman_lms")
 MONGODB_TIMEOUT = int(os.getenv("MONGODB_TIMEOUT", "10000"))  # ms

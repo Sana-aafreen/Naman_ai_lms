@@ -25,6 +25,7 @@ from pathlib import Path
 import sys
 
 _AGENTS_DIR = Path(__file__).parent
+from mongo_db import safe_print
 
 # -- Scoring constants ----------------------------------------------------------
 WORKING_DAYS_PER_MONTH = 22     # approximation
@@ -250,10 +251,25 @@ def compute_employee_kpi(
         pass
 
     # Pillar scores
-    learning_score, courses_done, avg_quiz = _calc_learning_score(employee_id)
-    attendance_score, leave_days           = _calc_attendance_score(employee_id, month)
-    work_score, rating_row                 = _calc_work_score(employee_id, month)
-    growth_score, streak, badges, level    = _calc_growth_score(employee_id)
+    safe_print(f"  [KPI Debug] Computing pillar scores for {employee_id} ({month})")
+    
+    try:
+        learning_score, courses_done, avg_quiz = _calc_learning_score(employee_id)
+        safe_print(f"  [KPI Debug] Learning: {learning_score}")
+        
+        attendance_score, leave_days           = _calc_attendance_score(employee_id, month)
+        safe_print(f"  [KPI Debug] Attendance: {attendance_score}")
+        
+        work_score, rating_row                 = _calc_work_score(employee_id, month)
+        safe_print(f"  [KPI Debug] Work: {work_score}")
+        
+        growth_score, streak, badges, level    = _calc_growth_score(employee_id)
+        safe_print(f"  [KPI Debug] Growth: {growth_score}")
+    except Exception as e:
+        safe_print(f"  [KPI Debug] PILLAR CRASH for {employee_id}: {e}")
+        import traceback
+        safe_print(traceback.format_exc())
+        raise
 
     # Weighted overall
     overall = round(
