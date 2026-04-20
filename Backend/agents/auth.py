@@ -65,19 +65,6 @@ def authenticate_user(
     pwd = str(password).strip()
     dept = str(department).strip()
 
-    # EMERGENCY FALLBACK: Hardcoded check for ADM001 to ensure access during sync debugging
-    if uid.upper() == "ADM001" and pwd == "Sana@121":
-        print(f"[Auth] CRITICAL: Using emergency fallback for {uid}")
-        return {
-            "id": "ADM001",
-            "gsheet_uid": "ADM001",
-            "userName": "Sana (Fallback)",
-            "name": "Sana",
-            "role": "Admin",
-            "department": "Admin",
-            "email": "adm001@namandarshan.com"
-        }
-
     # Enhanced Prod Diagnostic: Check total employee count in DB
     try:
         emp_count = mongo_db.count_documents("employees")
@@ -85,58 +72,83 @@ def authenticate_user(
         print(f"[Auth] Attempting login: ID='{uid}' (dept: '{dept}')")
     except Exception as e:
         print(f"[Auth] Diagnostic Error: Could not count employees: {e}")
+
     safe_uid = re.escape(uid)
-    query = {
-        "$or": [
-            {"gsheet_uid": {"$regex": f"^{safe_uid}$", "$options": "i"}},
-            {"id": uid}
-        ]
-    }
-    
+    user = mongo_db.find_one(
+        "employees",
+        {
+            "$or": [
+                {"gsheet_uid": {"$regex": f"^{safe_uid}$", "$options": "i"}},
+                {"id": {"$regex": f"^{safe_uid}$", "$options": "i"}},
+                {"userId": {"$regex": f"^{safe_uid}$", "$options": "i"}},
+            ]
+        },
+    )
+
+    if not user:
+        safe_print(f"[Auth] FAILED: User not found (user_id='{uid}')")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 2. Check password (support both 'password' and legacy 'gsheet_password')
+    candidate_passwords: list[str] = []
+    for key in ("password", "gsheet_password"):
+        raw = user.get(key)
+        if raw is None:
+            continue
+        val = str(raw).strip()
+        if val:
+            candidate_passwords.append(val)
+
+    if not candidate_passwords or pwd not in candidate_passwords:
+        present = ",".join([k for k in ("password", "gsheet_password") if str(user.get(k) or "").strip()])
+        safe_print(
+            f"[Auth] FAILED: Password mismatch (user_id='{uid}', present_password_fields='{present or 'none'}')"
+        )
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 3. Check department/role scope (if provided)
     if dept:
         # If the provided "department" is actually one of our role names,
-        # we check the role instead of the department field to allow login 
-        # (e.g. frontend sends 'Manager' during manager login).
-        if dept.lower() in ["manager", "admin"]:
-            query["role"] = {"$regex": f"^{re.escape(dept)}$", "$options": "i"}
+        # check role instead of department (frontend uses 'Manager'/'Admin' scope).
+        user_role = normalize_role(user.get("role"))
+        if dept.lower() in {"manager", "admin"}:
+            if user_role.lower() != dept.lower():
+                safe_print(
+                    f"[Auth] FAILED: Role mismatch (user_id='{uid}', expected_role='{dept}', actual_role='{user_role}')"
+                )
+                raise HTTPException(status_code=401, detail="Invalid credentials")
         else:
-            safe_dept = re.escape(dept)
-            query["department"] = {"$regex": f"^{safe_dept}$", "$options": "i"}
-
-    user = mongo_db.find_one("employees", query)
-    
-    if not user:
-        safe_print(f"[Auth] FAILED: User '{uid}' not found in 'employees' (Query keys: gsheet_uid, id)")
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    # 2. Check password
-    db_pass = user.get("password", "password123")
-    if password != db_pass:
-        safe_print(f"[Auth] FAILED: Password mismatch for user '{uid}' (Expected: {db_pass[:2]}..., Received: {password[:2]}...)")
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    # 3. Check department (if provided)
-    if department:
-        user_dept = user.get("department", "")
-        if str(department).lower() != str(user_dept).lower():
-            safe_print(f"[Auth] FAILED: Department mismatch for user '{uid}' (Expected: {user_dept}, Received: {department})")
-            # We treat this as a failure because the frontend passes department during login
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            user_dept = str(user.get("department", "") or "").strip()
+            if user_dept.lower() != dept.lower():
+                safe_print(
+                    f"[Auth] FAILED: Department mismatch (user_id='{uid}', expected_department='{dept}', actual_department='{user_dept}')"
+                )
+                raise HTTPException(status_code=401, detail="Invalid credentials")
 
     safe_print(f"[Auth] SUCCESS: User '{uid}' authenticated as role '{user.get('role')}'")
 
-    # Convert MongoDB _id to string or remove it
-    if "_id" in user:
-        user["id"] = str(user["_id"])
-        del user["_id"]
-    
-    # Also handle the gsheet_uid vs id inconsistency if necessary
-    if "gsheet_uid" in user and "id" not in user:
-        user["id"] = user["gsheet_uid"]
+    canonical_id = str(user.get("id") or user.get("gsheet_uid") or user.get("userId") or uid).strip()
+    canonical_name = str(user.get("name") or user.get("userName") or user_name or "").strip()
+    canonical_department = str(user.get("department") or "").strip()
+    if not canonical_department:
+        canonical_department = "Admin" if normalize_role(user.get("role")) == "Admin" else "General"
 
-    user.pop("gsheet_password", None)
-    user["role"] = normalize_role(user.get("role"))
-    return user
+    # Return a stable shape for JWT + frontend
+    result: dict[str, Any] = {
+        "id": canonical_id,
+        "userId": canonical_id,
+        "gsheet_uid": str(user.get("gsheet_uid") or canonical_id).strip(),
+        "userName": canonical_name,
+        "name": canonical_name,
+        "department": canonical_department,
+        "role": normalize_role(user.get("role")),
+        "email": str(user.get("email") or "").strip(),
+    }
+
+    if user.get("avatar_color"):
+        result["avatar_color"] = user.get("avatar_color")
+
+    return result
 
 
 def authenticate_and_issue_token(

@@ -42,3 +42,20 @@ Thumbs.db
 coverage/
 playwright-report/
 test-results/
+
+# Local backend debug artifacts (do not commit)
+Backend/tmp_*
+Backend/debug_auth.txt
+Backend/debug_gsheet_passwords.py
+Backend/log_login.txt
+Backend/server_crash.log
+Backend/token.txt
+Backend/uvicorn_output.log
+Backend/uvicorn_output*.log
+Backend/tmp_*.txt
+Backend/tmp_*.json
+Backend/tmp_*.log
+Backend/test_kpi_*.py
+Backend/test_role_auth.py
+Backend/test_utf8.py
+Backend/verify_fix.py

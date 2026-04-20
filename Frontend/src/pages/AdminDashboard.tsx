@@ -556,33 +556,37 @@ const AdminDashboard: React.FC = () => {
             {loadingEmployees && <div className="text-[13px] text-muted-foreground">Loading employee records...</div>}
             {employeeError && <div className="text-[13px] text-red-600">{employeeError}</div>}
             {!loadingEmployees && !employeeError && visibleEmployees.length > 0 && (
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    <th className="text-left p-2.5 bg-secondary rounded-l-md">User ID</th>
-                    <th className="text-left p-2.5 bg-secondary">Name</th>
-                    <th className="text-left p-2.5 bg-secondary">Department</th>
-                    <th className="text-left p-2.5 bg-secondary">Role</th>
-                    <th className="text-left p-2.5 bg-secondary rounded-r-md">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleEmployees.map((e, i) => (
-                    <tr key={`${e.department}-${e.userId}-${e.role}-${e.id}-${i}`}
-                      className="border-b border-border last:border-b-0 hover:bg-secondary/50">
-                      <td className="p-2.5 font-medium">{e.userId}</td>
-                      <td className="p-2.5">{e.userName || e.name}</td>
-                      <td className="p-2.5">{e.department}</td>
-                      <td className="p-2.5">{e.role}</td>
-                      <td className="p-2.5">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-nd-green-light text-nd-green">
-                          {e.status}
-                        </span>
-                      </td>
+              <div className="-mx-2 overflow-x-auto px-2">
+                <table className="w-full min-w-[680px] text-[13px]">
+                  <thead>
+                    <tr className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      <th className="text-left p-2.5 bg-secondary rounded-l-md">User ID</th>
+                      <th className="text-left p-2.5 bg-secondary">Name</th>
+                      <th className="text-left p-2.5 bg-secondary">Department</th>
+                      <th className="text-left p-2.5 bg-secondary">Role</th>
+                      <th className="text-left p-2.5 bg-secondary rounded-r-md">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {visibleEmployees.map((e, i) => (
+                      <tr
+                        key={`${e.department}-${e.userId}-${e.role}-${e.id}-${i}`}
+                        className="border-b border-border last:border-b-0 hover:bg-secondary/50"
+                      >
+                        <td className="p-2.5 font-medium">{e.userId}</td>
+                        <td className="p-2.5">{e.userName || e.name}</td>
+                        <td className="p-2.5">{e.department}</td>
+                        <td className="p-2.5">{e.role}</td>
+                        <td className="p-2.5">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-nd-green-light text-nd-green">
+                            {e.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </>
@@ -599,8 +603,8 @@ const AdminDashboard: React.FC = () => {
             {loadingProgress && <div className="text-[13px] text-muted-foreground">Loading progress report...</div>}
             {progressError && <div className="text-[13px] text-red-600">{progressError}</div>}
             {!loadingProgress && !progressError && progressOverview && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-[13px]">
+              <div className="-mx-2 overflow-x-auto px-2">
+                <table className="w-full min-w-[720px] text-[13px]">
                   <thead>
                     <tr className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                       <th className="text-left p-2.5 bg-secondary rounded-l-md">Name</th>

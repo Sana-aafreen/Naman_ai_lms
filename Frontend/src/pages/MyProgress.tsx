@@ -70,7 +70,7 @@ const MyProgress: React.FC = () => {
   }, []);
 
   return (
-    <div className="pb-20 max-w-[1280px] mx-auto px-6">
+    <div className="pb-20 max-w-[1280px] mx-auto px-4 md:px-6">
       <header className="mb-12 pt-6">
         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.25em] mb-6 flex items-center gap-2">
           Performance Analytics <ChevronRight className="w-3 h-3" /> <span className="text-slate-800 font-black">Growth Intelligence</span>

@@ -98,16 +98,16 @@ def set_work_rating(
     return {"success": True, "employee_id": employee_id, "month": month}
 
 
-def _get_work_rating(employee_id: str, month: str) -> Optional[dict[str, Any]]:
+def _get_work_rating(employee_ids: list[str], month: str) -> Optional[dict[str, Any]]:
     # Try exact month first
-    res = mongo_db.find_one("kpi_ratings", {"employee_id": employee_id, "month": month})
+    res = mongo_db.find_one("kpi_ratings", {"employee_id": {"$in": employee_ids}, "month": month})
     if res:
         return res
 
     # Carry-forward: get the most recent rating before this month
     res = mongo_db.find_many(
         "kpi_ratings",
-        {"employee_id": employee_id, "month": {"$lt": month}},
+        {"employee_id": {"$in": employee_ids}, "month": {"$lt": month}},
         sort=[("month", -1)],
         limit=1
     )
@@ -118,11 +118,11 @@ def _get_work_rating(employee_id: str, month: str) -> Optional[dict[str, Any]]:
 #  PILLAR CALCULATORS
 # ==============================================================================
 
-def _calc_learning_score(employee_id: str) -> tuple[float, int, float]:
+def _calc_learning_score(employee_ids: list[str]) -> tuple[float, int, float]:
     """Returns (learning_score, courses_done, avg_quiz_score)."""
     try:
         # Pull from quiz_results (was employee_course_progress in SQLite)
-        results = mongo_db.find_many("quiz_results", {"user_id": employee_id})
+        results = mongo_db.find_many("quiz_results", {"user_id": {"$in": employee_ids}})
         if not results:
             return 0.0, 0, 0.0
 
@@ -138,7 +138,7 @@ def _calc_learning_score(employee_id: str) -> tuple[float, int, float]:
         return 0.0, 0, 0.0
 
 
-def _calc_attendance_score(employee_id: str, month: str) -> tuple[float, int]:
+def _calc_attendance_score(employee_ids: list[str], month: str) -> tuple[float, int]:
     """Returns (attendance_score, leave_days_taken)."""
     year_str, month_str = month.split("-")
     prefix = f"{year_str}-{month_str}"
@@ -146,8 +146,8 @@ def _calc_attendance_score(employee_id: str, month: str) -> tuple[float, int]:
         # In MongoDB, we use gsheet_uid for employee_id
         # and leaves are stored in 'leaves' collection
         query = {
-            "employee_id": employee_id,
-            "status": "approved",
+            "employee_id": {"$in": employee_ids},
+            "status": {"$regex": "(?i)^approved$"},
             "$or": [
                 {"start_date": {"$regex": f"^{prefix}"}},
                 {"end_date": {"$regex": f"^{prefix}"}},
@@ -180,9 +180,9 @@ def _calc_attendance_score(employee_id: str, month: str) -> tuple[float, int]:
     return score, leave_days
 
 
-def _calc_work_score(employee_id: str, month: str) -> tuple[float, Optional[dict]]:
+def _calc_work_score(employee_ids: list[str], month: str) -> tuple[float, Optional[dict]]:
     """Returns (work_score, rating_row_or_None)."""
-    rating = _get_work_rating(employee_id, month)
+    rating = _get_work_rating(employee_ids, month)
     if not rating or rating.get("work_target", 0) == 0:
         return float(DEFAULT_WORK_SCORE), rating
 
@@ -241,29 +241,47 @@ def compute_employee_kpi(
     if not month:
         month = datetime.now(timezone.utc).strftime("%Y-%m")
 
-    # Fetch employee name from MongoDB
+    # Resolve employee aliases (historical records sometimes used Mongo _id as user_id)
     emp_name = employee_id
+    resolved_ids = {str(employee_id).strip()} if str(employee_id).strip() else set()
     try:
-        emp = mongo_db.find_one("employees", {"$or": [{"gsheet_uid": employee_id}, {"id": employee_id}]})
+        or_terms: list[dict[str, Any]] = [
+            {"gsheet_uid": employee_id},
+            {"id": employee_id},
+            {"userId": employee_id},
+        ]
+        if ObjectId.is_valid(str(employee_id)):
+            or_terms.append({"_id": ObjectId(str(employee_id))})
+        emp = mongo_db.find_one("employees", {"$or": or_terms})
         if emp:
             emp_name = emp.get("name", employee_id)
+            for key in ("gsheet_uid", "id", "userId", "_id"):
+                val = str(emp.get(key) or "").strip()
+                if val:
+                    resolved_ids.add(val)
     except Exception:
-        pass
+        emp = None
+
+    # Canonical id used in API responses
+    canonical_employee_id = str(employee_id).strip()
+    employee_ids = [eid for eid in sorted(resolved_ids) if eid]
+    if not employee_ids:
+        employee_ids = [canonical_employee_id]
 
     # Pillar scores
-    safe_print(f"  [KPI Debug] Computing pillar scores for {employee_id} ({month})")
-    
+    safe_print(f"  [KPI Debug] Computing pillar scores for {canonical_employee_id} ({month})")
+     
     try:
-        learning_score, courses_done, avg_quiz = _calc_learning_score(employee_id)
+        learning_score, courses_done, avg_quiz = _calc_learning_score(employee_ids)
         safe_print(f"  [KPI Debug] Learning: {learning_score}")
-        
-        attendance_score, leave_days           = _calc_attendance_score(employee_id, month)
+         
+        attendance_score, leave_days           = _calc_attendance_score(employee_ids, month)
         safe_print(f"  [KPI Debug] Attendance: {attendance_score}")
-        
-        work_score, rating_row                 = _calc_work_score(employee_id, month)
+         
+        work_score, rating_row                 = _calc_work_score(employee_ids, month)
         safe_print(f"  [KPI Debug] Work: {work_score}")
-        
-        growth_score, streak, badges, level    = _calc_growth_score(employee_id)
+         
+        growth_score, streak, badges, level    = _calc_growth_score(canonical_employee_id)
         safe_print(f"  [KPI Debug] Growth: {growth_score}")
     except Exception as e:
         safe_print(f"  [KPI Debug] PILLAR CRASH for {employee_id}: {e}")
@@ -285,7 +303,7 @@ def compute_employee_kpi(
     is_carried  = bool(rating_row and rating_row.get("month") != month)
 
     return {
-        "employee_id":       employee_id,
+        "employee_id":       canonical_employee_id,
         "employee_name":     emp_name,
         "department":        department,
         "month":             month,
@@ -325,7 +343,9 @@ def get_department_kpi(department: str, month: Optional[str] = None) -> dict[str
 
     employees_kpi = []
     for emp in rows:
-        uid = str(emp["gsheet_uid"] or emp["id"])
+        uid = str(emp.get("gsheet_uid") or emp.get("id") or emp.get("userId") or emp.get("_id") or "").strip()
+        if not uid:
+            continue
         kpi = compute_employee_kpi(uid, department, month)
         employees_kpi.append(kpi)
 

@@ -109,7 +109,7 @@ const Topbar: React.FC<{ onMenuClick?: () => void }> = ({ onMenuClick }) => {
     : "U";
 
   return (
-    <header className="h-20 bg-white border-b border-slate-100 flex items-center px-8 gap-6 z-50 sticky top-0 transition-all">
+    <header className="h-20 bg-white border-b border-slate-100 flex items-center px-4 md:px-8 gap-4 md:gap-6 z-50 sticky top-0 transition-all">
       {/* Mobile Toggle */}
       <button
         className="md:hidden p-2.5 -ml-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"

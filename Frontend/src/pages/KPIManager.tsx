@@ -802,7 +802,7 @@ const KPIManager: React.FC = () => {
   useEffect(() => { loadMyKpi(); }, [loadMyKpi]);
 
   return (
-    <div className="pb-20 max-w-[1280px] mx-auto px-6">
+    <div className="pb-20 max-w-[1280px] mx-auto px-4 md:px-6">
       {/* Page Header */}
       <motion.div {...fadeUp(0)} className="mb-8 pt-6">
         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.25em] flex items-center gap-2 mb-6">

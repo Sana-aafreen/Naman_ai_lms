@@ -232,25 +232,43 @@ def sync_employees_from_csv():
                     name = find_value(row, ["User_name", "name", "employee_name", "full_name"]).strip()
                     pwd  = find_value(row, ["Password", "pass", "pwd"]).strip()
                     dept = find_value(row, ["Department", "dept", "dep"]).strip()
-                    role = find_value(row, ["Role", "access", "type"], "employee").strip().lower()
-                    
+                    raw_role = find_value(row, ["Role", "access", "type"], "").strip()
+
+                    inferred_scope = "Employees"
+                    if "manager" in filename.lower():
+                        inferred_scope = "Manager"
+                    elif "admin" in filename.lower():
+                        inferred_scope = "Admin"
+
+                    if raw_role:
+                        role = normalize_role(raw_role)
+                    elif inferred_scope in {"Manager", "Admin"}:
+                        role = inferred_scope
+                    else:
+                        role = "Employee"
+
                     if not uid or not name:
                         continue
-                    
+                     
                     email = find_value(row, ["Email", "e-mail", "mail"]).strip()
                     if not email:
                         email = f"{uid.lower().replace(' ', '.')}@company.com"
-                    
+                     
                     # Upsert into MongoDB
                     mongo_db.update_one(
                         "employees",
                         {"gsheet_uid": uid},
                         {"$set": {
+                            # Canonical identity fields (frontend expectations)
+                            "id": uid,
+                            "userId": uid,
                             "name": name,
-                            "department": dept,
-                            "role": role,
+                            "department": dept or ("Admin" if role == "Admin" else "General"),
+                            "role": normalize_role(role),
                             "gsheet_uid": uid,
                             "gsheet_password": pwd,
+                            # Back-compat for auth checks
+                            "password": pwd,
                             "email": email,
                             "updated_at": mongo_db.now_iso()
                         }},
@@ -288,7 +306,14 @@ def sync_employees_from_gsheet():
                 name = find_value(row, ["User_name", "name", "employee_name", "full_name"]).strip()
                 pwd  = find_value(row, ["Password", "pass", "pwd"]).strip()
                 dept = find_value(row, ["Department", "dept", "dep", "Dep"]).strip()
-                role = find_value(row, ["Role", "access", "type"], "employee").strip().lower()
+                raw_role = find_value(row, ["Role", "access", "type"], "").strip()
+
+                if raw_role:
+                    role = normalize_role(raw_role)
+                elif tab in {"Manager", "Admin"}:
+                    role = tab
+                else:
+                    role = "Employee"
 
                 if not uid or not name:
                     continue
@@ -302,11 +327,16 @@ def sync_employees_from_gsheet():
                     "employees",
                     {"gsheet_uid": uid},
                     {"$set": {
+                        # Canonical identity fields (frontend expectations)
+                        "id": uid,
+                        "userId": uid,
                         "name": name,
-                        "department": dept or tab,
-                        "role": role,
+                        "department": dept or ("Admin" if role == "Admin" else "General"),
+                        "role": normalize_role(role),
                         "gsheet_uid": uid,
                         "gsheet_password": pwd,
+                        # Back-compat for auth checks
+                        "password": pwd,
                         "email": email,
                         "updated_at": mongo_db.now_iso()
                     }},
@@ -2057,11 +2087,7 @@ try:
         publish_generated_course,
         submit_course_quiz,
     )
-    from services.sheets import (
-        authenticate_user,
-        get_departments,
-        get_sheets_api,
-    )
+    from services.sheets import get_departments, get_sheets_api
     from whats_new_routes import router as whats_new_router
     _LMS_AVAILABLE = True
 except ImportError as e:
@@ -2216,31 +2242,26 @@ async def ai_chat(req: AIChatRequest):
 
 @router.post("/api/login")
 async def login_alias(req: LoginRequest):
-    if not _LMS_AVAILABLE:
-        raise HTTPException(status_code=503, detail="LMS not available")
-    user = authenticate_user(req.userId, req.userName, req.password, req.department)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    from agents.auth import authenticate_and_issue_token
 
-    normalized_user = {
-        "id":         str(user.get("userId", "")),
-        "name":       user.get("userName", ""),
-        "department": user.get("department", ""),
-        "role":       user.get("role", "Employee"),
-        "email":      user.get("email", ""),
-    }
-    token = _create_auth_token(normalized_user)
-
+    result = authenticate_and_issue_token(req.userId, req.userName, req.password, req.department)
+    employee = result["user"]
     return {
         "success": True,
         "user": {
-            "userId":     normalized_user["id"],
-            "userName":   normalized_user["name"],
-            "department": normalized_user["department"],
-            "role":       normalized_user["role"],
-            "token":      token,
+            # Legacy keys
+            "userId":       employee.get("gsheet_uid", employee.get("id", "")),
+            "userName":     employee.get("name", ""),
+            # Frontend expected keys
+            "id":           employee.get("gsheet_uid", employee.get("id", "")),
+            "name":         employee.get("name", ""),
+            "department":   employee.get("department", ""),
+            "role":         employee.get("role", "Employee"),
+            "email":        employee.get("email", ""),
+            "avatar_color": employee.get("avatar_color", ""),
+            "token":        result["token"],
         },
-        "token": token,
+        "token": result["token"],
     }
 
 

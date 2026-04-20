@@ -90,7 +90,7 @@ const Courses: React.FC = () => {
   };
 
   return (
-    <div className="pb-20 max-w-[1280px] mx-auto px-6">
+    <div className="pb-20 max-w-[1280px] mx-auto px-4 md:px-6">
       <header className="mb-12 pt-6">
         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.25em] mb-6 flex items-center gap-2">
           Knowledge <ChevronRight className="w-3 h-3" /> <span className="text-slate-800 font-black">Strategic Courses</span>
@@ -102,7 +102,7 @@ const Courses: React.FC = () => {
               Access institutional knowledge assets for the <span className="text-amber-600 font-semibold">{activeDept} Department</span>.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm">
                <Filter className="w-4 h-4 ml-4 text-slate-400" />
                <div className="flex gap-1 overflow-x-auto scrollbar-none max-w-[500px] pr-2 mt-0.5">

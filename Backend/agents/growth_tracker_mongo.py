@@ -22,6 +22,7 @@ from typing import Any, Optional
 
 # MongoDB imports
 from pymongo import ASCENDING, DESCENDING
+from bson.objectid import ObjectId
 
 # Add parent directory to path for mongo_db import
 import sys
@@ -73,6 +74,38 @@ def _level_from_completions(n: int) -> str:
     if n >= 10: return "Intermediate"
     if n >= 4:  return "Associate"
     return "Beginner"
+
+
+def _resolve_employee_aliases(employee_id: str) -> list[str]:
+    """
+    Some historical records used MongoDB _id (as string) for user_id, while newer
+    records use the canonical gsheet/id. This returns a list of ids to query with.
+    """
+    base = str(employee_id or "").strip()
+    aliases: set[str] = {base} if base else set()
+    if not base:
+        return []
+
+    or_terms: list[dict[str, Any]] = [
+        {"gsheet_uid": base},
+        {"id": base},
+        {"userId": base},
+    ]
+    if ObjectId.is_valid(base):
+        or_terms.append({"_id": ObjectId(base)})
+
+    try:
+        emp = find_one("employees", {"$or": or_terms})
+    except Exception:
+        emp = None
+
+    if emp:
+        for key in ("gsheet_uid", "id", "userId", "_id"):
+            val = str(emp.get(key) or "").strip()
+            if val:
+                aliases.add(val)
+
+    return [a for a in sorted(aliases) if a]
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -155,7 +188,8 @@ def list_published_courses(department: str = "") -> list[dict]:
     """
     query = {}
     if department:
-        query["department"] = department
+        dept = str(department).strip()
+        query["department"] = {"$regex": f"(?i)^{dept}$"}
     
     courses = find_many("published_courses", query, sort=[("created_at", DESCENDING)])
     
@@ -275,10 +309,14 @@ def get_employee_progress_report(employee_id: str) -> dict:
         dict with courses completed, scores, streaks, etc.
     """
     try:
+        aliases = _resolve_employee_aliases(employee_id)
+        if not aliases:
+            aliases = [str(employee_id or "").strip()]
+
         # Find all quiz submissions for this employee
         submissions = find_many(
             "quiz_results",
-            {"user_id": employee_id},
+            {"user_id": {"$in": aliases}},
             sort=[("submitted_at", DESCENDING)]
         )
         
