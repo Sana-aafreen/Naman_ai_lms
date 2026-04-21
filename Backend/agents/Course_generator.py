@@ -1107,7 +1107,7 @@ class HtmlModulePageWriter:
         next_filename: Optional[str],
         exam_filename: str,
         out_path: Path,
-        db_course_id: str = "",      # <- str, not int
+        db_course_id: str = "",
     ) -> Path:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         html = self._render(
@@ -1130,7 +1130,7 @@ class HtmlModulePageWriter:
         prev_fn: Optional[str],
         next_fn: Optional[str],
         exam_fn: str,
-        db_course_id: str = "",      # <- str
+        db_course_id: str = "",
     ) -> str:
         title    = _esc_html(m.get("title", f"Module {idx}"))
         duration = _esc_html(m.get("duration", ""))
@@ -1622,7 +1622,7 @@ class HtmlFinalExamWriter:
         total_modules: int,
         index_filename: str,
         out_path: Path,
-        db_course_id: str = "",      # <- str
+        db_course_id: str = "",
     ) -> Path:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         html = self._render(final_exam, course_title, dept, slug, total_modules, index_filename, db_course_id)
@@ -1637,7 +1637,7 @@ class HtmlFinalExamWriter:
         slug: str,
         total_modules: int,
         index_fn: str,
-        db_course_id: str = "",      # <- str
+        db_course_id: str = "",
     ) -> str:
         title   = _esc_html(course_title)
         dept_e  = _esc_html(dept)
@@ -2148,7 +2148,6 @@ class CourseGeneratorAgent:
                 save_to_disk = True
 
         # -- Second pass: re-render with real db_course_id in links -------
-        # -- Second pass: re-render with real db_course_id in links -------
         if db_course_id:
             print(f"  [CourseGen v5.1] Re-rendering with db_course_id={db_course_id}")
             course_json["db_course_id"] = db_course_id
@@ -2183,7 +2182,6 @@ class CourseGeneratorAgent:
                 except Exception as _upd_err:
                     print(f"  [CourseGen v5.1] update_html failed ({_upd_err}).")
         else:
-            # No DB or save failed  use first-pass HTML
             save_to_disk = True
             html_index_final          = html_index_str
             module_html_strings_final = module_html_strings
@@ -2220,7 +2218,6 @@ class CourseGeneratorAgent:
                 "html_url": (f"/api/generated-courses/download/{db_course_id}/exam"
                              if db_course_id else f"/api/generated-courses/file/{exam_fn}"),
             },
-            # Backward compat
             "html_course": {
                 "html_filename": index_fn,
                 "html_url": (f"/api/generated-courses/download/{db_course_id}/index"
@@ -2371,46 +2368,37 @@ class CourseGeneratorAgent:
         return messages, f"{HTML_COURSE_CONTENT_SYSTEM}\n\n{user}"
 
     def _is_complete_course(self, result: Any) -> TypeGuard[dict[str, Any]]:
-        """Sanity check to ensure the AI actually generated content, not just a shell."""
         if not isinstance(result, dict):
             return False
         modules = result.get("modules")
         if not modules or not isinstance(modules, list) or len(modules) < 3:
             return False
-        
-        # Check if first module has at least one lesson with content
         first_mod = modules[0]
         content = first_mod.get("content", {})
         lessons = content.get("lessons", [])
         if not lessons or not isinstance(lessons, list) or len(lessons) < 1:
             return False
-            
-        # Basic check for a quiz (either in first module or final_exam)
         has_quiz = len(first_mod.get("quiz", [])) > 0 or len(result.get("final_exam", [])) > 0
         if not has_quiz:
             return False
-            
         return True
 
     def _generate_html_course_json(
         self, department: str, sources: list[SourceDocument], topic: str
     ) -> dict[str, Any]:
         messages, flat = self._build_html_course_prompt(department, sources, topic=topic)
-        
-        # Try Groq (Fastest)
+
         result = self._call_groq_key2(messages)
         if self._is_complete_course(result):
             print("  [CourseGen] Groq generation SUCCESS (Complete course)")
             return result
-        
-        # Try Gemini (Fallback AI)
+
         print("  [CourseGen] Groq returned incomplete course. Trying Gemini fallback...")
         result = self._call_gemini(flat)
         if self._is_complete_course(result):
             print("  [CourseGen] Gemini generation SUCCESS (Complete course)")
             return result
-            
-        # Hard Fallback (Deterministic Rule-Based)
+
         print("  [CourseGen] AI generation failed or returned incomplete content. Using rule-based fallback.")
         return self._fallback_html_course_json(department, sources)
 
@@ -2801,9 +2789,7 @@ class CourseGeneratorAgent:
             ))
         if ORIGINAL_SOPS_DIR.exists():
             for pdf in ORIGINAL_SOPS_DIR.glob("*.pdf"):
-                # If it's the comprehensive SOP, or matches the department, include it
                 if "comprehensive" in pdf.name.lower() or norm in pdf.stem.lower():
-                    # Extract raw text from the PDF to provide as context
                     try:
                         from agents.AIChat import extract_pdf_chunks
                         chunks = extract_pdf_chunks(pdf)
@@ -2811,7 +2797,6 @@ class CourseGeneratorAgent:
                     except Exception as e:
                         print(f"  [CourseGen] Warning: Could not extract text from {pdf.name}: {e}")
                         content = f"SOP PDF: {pdf.name} (Text extraction failed)"
-                    
                     sources.append(SourceDocument(
                         "sop_pdf", pdf.stem.replace("_", " ").title(),
                         str(pdf), content,
@@ -2883,7 +2868,7 @@ def _make_router():
 
         class RecordProgressRequest(BaseModel):
             learner_id: str
-            course_id: str           # <- str (MongoDB UUID)
+            course_id: str
             module_id: str
             module_title: str
             department: str
@@ -2894,7 +2879,6 @@ def _make_router():
         @router.post("/generate")
         async def generate_course(req: GenerateCourseRequest):
             try:
-                # Force generation of physical files so they can be served via /api/generated-courses/file/
                 return _agent.generate_html_course_package(
                     department=req.department,
                     related_queries=req.related_queries,
@@ -2907,42 +2891,77 @@ def _make_router():
         @router.get("/list")
         async def list_courses(department: Optional[str] = None):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             return _db.list_courses(department or "")
 
         @router.get("/search")
         async def search_courses(q: str, department: Optional[str] = None):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             return _db.search_courses(q, department or "")
 
         @router.get("/stats/db")
         async def db_stats():
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             return _db.get_db_stats()
 
-        @router.get("/{course_id}/meta")
-        async def get_course_meta(course_id: str):          # <- str
+        # ── DEBUG ENDPOINT ─────────────────────────────────────────────────
+        # Shows raw department strings exactly as stored in MongoDB.
+        # Use this to confirm casing and check what courses are saved.
+        # Safe to leave in — returns no HTML blobs.
+        # Hit: GET /api/generated-courses/debug/all-raw
+        @router.get("/debug/all-raw")
+        async def debug_all_courses():
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
+            from mongo_db import find_many
+            from pymongo import DESCENDING
+            docs = find_many(
+                "courses", {},
+                sort=[("created_at", DESCENDING)],
+                limit=10,
+            )
+            for d in docs:
+                d.pop("html_index",  None)
+                d.pop("html_exam",   None)
+                d.pop("course_json", None)
+                if "_id" in d:
+                    d["_id"] = str(d["_id"])
+            return docs
+        # ── END DEBUG ──────────────────────────────────────────────────────
+
+        @router.get("/{course_id}/meta")
+        async def get_course_meta(course_id: str):
+            _db = get_course_db()
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             course = _db.get_course(course_id)
-            if not course: raise HTTPException(404, "Course not found")
+            if not course:
+                raise HTTPException(404, "Course not found")
             modules = _db.get_modules(course_id)
             for m in modules:
                 m.pop("html_content", None)
-                m.pop("module_json", None)
-            course.pop("html_index", None)
-            course.pop("html_exam", None)
+                m.pop("module_json",  None)
+            course.pop("html_index",  None)
+            course.pop("html_exam",   None)
             course.pop("course_json", None)
+            if "_id" in course:
+                course["_id"] = str(course["_id"])
             return {"course": course, "modules": modules}
 
         @router.get("/download/{course_id}/index", response_class=HTMLResponse)
-        async def download_index(course_id: str, as_file: bool = False):   # <- str
+        async def download_index(course_id: str, as_file: bool = False):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             html, filename = _db.get_html_for_download(course_id, "index")
-            if not html: raise HTTPException(404, "Index HTML not found")
+            if not html:
+                raise HTTPException(404, "Index HTML not found")
             if as_file:
                 return StreamingResponse(
                     _io.BytesIO(html.encode("utf-8")), media_type="text/html",
@@ -2951,11 +2970,13 @@ def _make_router():
             return HTMLResponse(content=html)
 
         @router.get("/download/{course_id}/exam", response_class=HTMLResponse)
-        async def download_exam(course_id: str, as_file: bool = False):    # <- str
+        async def download_exam(course_id: str, as_file: bool = False):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             html, filename = _db.get_html_for_download(course_id, "exam")
-            if not html: raise HTTPException(404, "Exam HTML not found")
+            if not html:
+                raise HTTPException(404, "Exam HTML not found")
             if as_file:
                 return StreamingResponse(
                     _io.BytesIO(html.encode("utf-8")), media_type="text/html",
@@ -2966,9 +2987,11 @@ def _make_router():
         @router.get("/download/{course_id}/module/{module_index}", response_class=HTMLResponse)
         async def download_module(course_id: str, module_index: int, as_file: bool = False):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             html, filename = _db.get_html_for_download(course_id, f"module:{module_index}")
-            if not html: raise HTTPException(404, f"Module {module_index} HTML not found")
+            if not html:
+                raise HTTPException(404, f"Module {module_index} HTML not found")
             if as_file:
                 return StreamingResponse(
                     _io.BytesIO(html.encode("utf-8")), media_type="text/html",
@@ -2977,9 +3000,10 @@ def _make_router():
             return HTMLResponse(content=html)
 
         @router.get("/download/{course_id}/all-files")
-        async def download_all_files(course_id: str):       # <- str
+        async def download_all_files(course_id: str):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             written = _db.write_to_disk(course_id, OUTPUT_DIR)
             return {"course_id": course_id, "files_written": len(written),
                     "paths": {k: str(v) for k, v in written.items()}}
@@ -2987,7 +3011,8 @@ def _make_router():
         @router.post("/progress")
         async def record_progress(req: RecordProgressRequest):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             _db.record_progress(
                 learner_id=req.learner_id, course_id=req.course_id,
                 module_id=req.module_id, module_title=req.module_title,
@@ -2999,52 +3024,61 @@ def _make_router():
             return {"status": "recorded"}
 
         @router.get("/progress/{learner_id}")
-        async def get_progress(learner_id: str, course_id: Optional[str] = None):  # <- str
+        async def get_progress(learner_id: str, course_id: Optional[str] = None):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             return _db.get_learner_progress(learner_id, course_id or "")
 
         @router.get("/stats/{course_id}")
-        async def get_stats(course_id: str):                # <- str
+        async def get_stats(course_id: str):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             return _db.get_course_stats(course_id)
 
         @router.get("/leaderboard/{course_id}")
-        async def get_leaderboard(course_id: str, limit: int = 10):  # <- str (no leaderboard in mongo yet)
+        async def get_leaderboard(course_id: str, limit: int = 10):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
-            return _db.get_course_stats(course_id)  # fallback to stats
+            if _db is None:
+                raise HTTPException(503, "DB not available")
+            return _db.get_course_stats(course_id)
 
         @router.get("/certificates/{learner_id}")
         async def list_certs(learner_id: str):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             return _db.list_certificates(learner_id)
 
         @router.get("/{course_id}/assessments")
-        async def get_assessments(course_id: str):          # <- str
+        async def get_assessments(course_id: str):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             modules = _db.get_modules(course_id)
             return [{"module_index": m.get("module_index"), "module_title": m.get("title", "")}
                     for m in modules]
 
         @router.get("/{course_id}/final-exam-questions")
-        async def get_final_exam_questions(course_id: str):  # <- str
+        async def get_final_exam_questions(course_id: str):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             course = _db.get_course(course_id)
-            if not course: raise HTTPException(404, "Course not found")
+            if not course:
+                raise HTTPException(404, "Course not found")
             cj = course.get("course_json", {})
             return cj.get("final_exam", [])
 
         @router.delete("/{course_id}")
-        async def delete_course(course_id: str, hard: bool = False):  # <- str
+        async def delete_course(course_id: str, hard: bool = False):
             _db = get_course_db()
-            if _db is None: raise HTTPException(503, "DB not available")
+            if _db is None:
+                raise HTTPException(503, "DB not available")
             ok = _db.delete_course(course_id) if hard else _db.archive_course(course_id)
-            if not ok: raise HTTPException(404, "Course not found")
+            if not ok:
+                raise HTTPException(404, "Course not found")
             return {"status": "deleted" if hard else "archived", "course_id": course_id}
 
         return router
@@ -3094,5 +3128,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 # -- Exported Router -----------------------------------------------------------
 router = _make_router()

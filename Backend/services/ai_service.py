@@ -23,8 +23,16 @@ class GeminiService:
         self.model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
         self.api_key = os.getenv("GEMINI_API_KEY", "")
         
-        # Priority fallback models
-        self.fallback_models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        # Priority fallback models including versioned variants
+        self.fallback_models = [
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash-001",
+            "gemini-1.5-flash-002",
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-pro-latest"
+        ]
         
         if not self.api_key:
             safe_print("⚠️  [AI Service] GEMINI_API_KEY not found in environment.")
@@ -35,21 +43,40 @@ class GeminiService:
             self.client = genai.Client(api_key=self.api_key)
             
             # Verify connectivity and select best available model
+            # We filter out models that are known to fail temporarily
             test_models = [self.model_name] + [m for m in self.fallback_models if m != self.model_name]
             
+            found_working = False
             for m in test_models:
                 try:
                     # Low-token test to verify model availability
                     self.client.models.generate_content(model=m, contents="ping")
                     self.model_name = m
                     safe_print(f"✅ [AI Service] Gemini initialized with model: {self.model_name}")
+                    found_working = True
                     break
                 except Exception as e:
-                    safe_print(f"⚠️  [AI Service] Model {m} not available: {e}")
+                    err_msg = str(e).lower()
+                    if "429" in err_msg or "quota" in err_msg:
+                        safe_print(f"⌛ [AI Service] Model {m} is rate-limited (429/Quota).")
+                    elif "404" in err_msg:
+                        # Try with prefix if short name failed (though genai client usually handles this)
+                        if not m.startswith("models/"):
+                            try:
+                                full_m = f"models/{m}"
+                                self.client.models.generate_content(model=full_m, contents="ping")
+                                self.model_name = full_m
+                                safe_print(f"✅ [AI Service] Gemini initialized with full path: {self.model_name}")
+                                found_working = True
+                                break
+                            except Exception: pass
+                        safe_print(f"❓ [AI Service] Model {m} not found (404).")
+                    else:
+                        safe_print(f"⚠️  [AI Service] Model {m} error: {e}")
                     continue
             
-            if not self.model_name:
-                safe_print("❌ [AI Service] No valid Gemini models could be initialized.")
+            if not found_working:
+                safe_print("❌ [AI Service] All Gemini models currently unreachable. Using heuristic fallbacks.")
                 self.client = None
                 
         except ImportError:

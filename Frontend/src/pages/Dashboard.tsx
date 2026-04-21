@@ -109,7 +109,7 @@ const StatCard: React.FC<{
 
 const ActivityChart: React.FC = () => (
   <div className="h-[160px] w-full mt-2">
-    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+    <ResponsiveContainer width="99%" height={160}>
       <AreaChart data={CHART_DATA}>
         <defs>
           <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">

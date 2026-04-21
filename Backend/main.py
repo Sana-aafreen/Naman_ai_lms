@@ -141,7 +141,11 @@ from agents.Growth_tracker import (  # noqa: E402
     submit_course_quiz,
 )
 from agents.Monitoring_agent import MonitoringAgent  # noqa: E402
-from agents.calendar_manager import router as calendar_router, _get_calendar_events  # noqa: E402
+from agents.calendar_manager import (  # noqa: E402
+    router as calendar_router,
+    _get_calendar_events,
+    _get_current_user
+)
 from whats_new_routes import router as whats_new_router  # noqa: E402
 from services.sheets import get_departments, get_sheets_api
 
@@ -164,7 +168,6 @@ from agents.profile_manager import (
 
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -240,11 +243,14 @@ app = FastAPI(title="NamanDarshan LMS", version="2.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "http://localhost:8080",
         "http://localhost:5173",
-        "https://naman-ai-lms.vercel.app",
-        "*"
+        "http://localhost:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:5173",
+        "https://naman-ai-lms.vercel.app"
     ],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -260,20 +266,14 @@ async def global_exception_handler(request: Request, exc: Exception):
         safe_print(f"\n[ERROR] Unhandled Exception at {request.url}")
         safe_print(traceback.format_exc())
         status_code = 500
-        content = {"detail": "Internal Server Error. Check server logs for details."}
-    
-    response = JSONResponse(
+        content = {"detail": str(exc)}
+
+    # Don't manually set CORS headers here — CORSMiddleware handles it.
+    # Manual headers here can OVERRIDE middleware and cause origin mismatch.
+    return JSONResponse(
         status_code=status_code,
         content=content,
     )
-    
-    # Manually add CORS headers to the error response to avoid "CORS block" 
-    # and instead show the actual error status in the frontend/browser console.
-    response.headers["Access-Control-Allow-Origin"] = "https://naman-ai-lms.vercel.app"
-    response.headers["Access-Control-Allow-Methods"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    
-    return response
 
 app.include_router(calendar_router)
 app.include_router(whats_new_router)
@@ -658,6 +658,11 @@ async def get_progress_report(authorization: Optional[str] = Header(default=None
     current_user = _get_current_user(authorization)
     return get_employee_progress_report(str(current_user.get("sub", current_user.get("id", ""))))
 
+# Alias for frontend compatibility in some versions
+@app.get("/api/growth-tracker/progress")
+async def get_progress_alias(authorization: Optional[str] = Header(default=None)):
+    return await get_progress_report(authorization)
+
 
 @app.get("/api/progress-overview")
 async def get_progress_overview(authorization: Optional[str] = Header(default=None)):
@@ -869,10 +874,26 @@ Return ONLY valid JSON  no markdown, no backticks:
 @app.get("/api/kpi/me")
 async def kpi_me(authorization: Optional[str] = Header(default=None)):
     """Employee: view own KPI for current (or specified) month."""
-    current_user = _get_current_user(authorization)
+    try:
+        current_user = _get_current_user(authorization)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     employee_id  = str(current_user.get("sub", current_user.get("id", "")))
     department   = current_user.get("department", "")
+    
+    # Debug log for server-side verification
+    safe_print(f"[KPI Request] Calling compute_employee_kpi for {employee_id} ({department})")
     return compute_employee_kpi(employee_id, department)
+
+
+@app.get("/api/kpi/debug")
+async def kpi_debug(authorization: Optional[str] = Header(default=None)):
+    try:
+        current_user = _get_current_user(authorization)
+        return {"user": current_user}
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 
 @app.get("/api/kpi/employee/{employee_id}")
@@ -974,4 +995,4 @@ if __name__ == "__main__":
     # Use the current app instance directly to avoid importing the module again.
     port = int(os.environ.get("PORT", 8000))
     safe_print(f"Starting uvicorn on port {port}...")
-    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+    uvicorn.run(app, host="127.0.0.1", port=port, reload=False)

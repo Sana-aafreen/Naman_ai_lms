@@ -1,6 +1,9 @@
 {
-  "venvPath": "Backend",
-  "venv": "venv",
+  "venvPath": "c:\\Users\\sumbu\\Downloads\\namandarshan-learn-ai-fullstack\\namandarshan-learn-ai-fullstack",
+  "venv": "Backend/venv",
+  "extraPaths": [
+    "c:\\Users\\sumbu\\Downloads\\namandarshan-learn-ai-fullstack\\namandarshan-learn-ai-fullstack\\Backend"
+  ],
   "executionEnvironments": [
     {
       "root": "Backend"

@@ -2846,4 +2846,4 @@ if __name__ == "__main__":
     • Without GCal service account, meetings are stored locally only.
 """)
     if __name__ == "__main__":
-        uvicorn.run("calendar_manager:app", host="0.0.0.0", port=8000, reload=True)
+        uvicorn.run("calendar_manager:app", host="127.0.0.1", port=8000, reload=True)

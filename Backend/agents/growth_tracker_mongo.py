@@ -252,12 +252,22 @@ def submit_course_quiz(
         score_pct = int((correct_count / total_count * 100) if total_count > 0 else 0)
         passed = score_pct >= PASS_THRESHOLD
         
+        # Fetch course title for historical record
+        course_title = "Unnamed Course"
+        try:
+            from bson.objectid import ObjectId
+            c_doc = find_one("published_courses", {"_id": ObjectId(course_id)})
+            if c_doc:
+                course_title = c_doc.get("title", "Unnamed Course")
+        except: pass
+
         # Record submission
         submission = {
             "user_id": employee_id,
             "employee_name": employee_name,
             "department": department,
             "course_id": course_id,
+            "course_title": course_title,
             "score": score_pct,
             "correct": correct_count,
             "total": total_count,
@@ -303,10 +313,10 @@ def submit_course_quiz(
 
 def get_employee_progress_report(employee_id: str) -> dict:
     """
-    Get personalized progress report for an employee.
+    Get personalized progress report for an employee, synced with Frontend Performance Portfolio.
     
     Returns:
-        dict with courses completed, scores, streaks, etc.
+        ProgressReport compatible dictionary.
     """
     try:
         aliases = _resolve_employee_aliases(employee_id)
@@ -322,59 +332,76 @@ def get_employee_progress_report(employee_id: str) -> dict:
         
         if not submissions:
             return {
-                "employee_id": employee_id,
-                "courses_completed": 0,
-                "avg_score": 0,
-                "total_quizzes": 0,
-                "passed_quizzes": 0,
-                "current_streak": 0,
+                "overallScore": 0,
+                "coursesDone": 0,
+                "learningHours": 0,
+                "departmentRank": "-",
+                "skills": [],
                 "badges": [],
-                "recent_courses": [],
+                "completedCourses": [],
             }
         
-        courses_completed = len(submissions)
-        avg_score = sum(s["score"] for s in submissions) / courses_completed if submissions else 0
-        passed = sum(1 for s in submissions if s["passed"])
+        courses_done = len(submissions)
+        avg_score = sum(s["score"] for s in submissions) / courses_done if submissions else 0
         
-        # Calculate streak (consecutive days with activity)
-        dates_active = set()
-        for sub in submissions:
-            dt_str = sub.get("submitted_at", "")
-            if dt_str:
-                dates_active.add(dt_str[:10])  # YYYY-MM-DD
+        # Calculate skill categories from department distributions
+        dept_scores = defaultdict(list)
+        for s in submissions:
+            dept = s.get("department") or "General"
+            dept_scores[dept].append(s["score"])
         
-        current_streak = 0
-        today = datetime.now(timezone.utc).date()
+        skills = []
+        colors = ["#FF7033", "#10b981", "#6366f1", "#f59e0b", "#ec4899", "#8b5cf6"]
+        for i, (dept, scores) in enumerate(dept_scores.items()):
+            skills.append({
+                "name": dept,
+                "score": int(sum(scores) / len(scores)),
+                "color": colors[i % len(colors)]
+            })
+
+        # Enrich badges
+        badge_types = {
+            "🏆 Expert": {"icon": "🏆", "title": "Expert Practitioner", "desc": "Achieved 95%+ in professional modules."},
+            "⭐ Proficient": {"icon": "⭐", "title": "Proficient Scholar", "desc": "Consistent high performance across disciplines."},
+            "✅ Competent": {"icon": "✅", "title": "Certified Associate", "desc": "Verified competency in core institutional protocols."},
+            "📘 Learning": {"icon": "📘", "title": "Active Learner", "desc": "Commenced professional development journey."},
+        }
         
-        for i in range(30):  # Check last 30 days
-            check_date = today - timedelta(days=i)
-            if check_date.isoformat() in dates_active:
-                current_streak += 1
-            else:
-                break
-        
+        raw_badges = list(set(_badge_for_score(s["score"]) for s in submissions))
+        enriched_badges = [
+            badge_types.get(b, {"icon": "🎖️", "title": b, "desc": "Achievement unlocked."})
+            for b in raw_badges[:5]
+        ]
+
+        # Calculate Rank (simple logic: compare against average)
+        dept_rank = "Top 10%" if avg_score > 85 else ("Top 25%" if avg_score > 75 else "Ranked")
+
         return {
-            "employee_id": employee_id,
-            "courses_completed": courses_completed,
-            "avg_score": round(avg_score, 1),
-            "total_quizzes": courses_completed,
-            "passed_quizzes": passed,
-            "current_streak": current_streak,
-            "badges": [_badge_for_score(s["score"]) for s in submissions[:5]],
-            "recent_courses": [
+            "overallScore": int(avg_score),
+            "coursesDone": courses_done,
+            "learningHours": round(courses_done * 1.2, 1), # Roughly 1.2h per course
+            "departmentRank": dept_rank,
+            "skills": skills,
+            "badges": enriched_badges,
+            "completedCourses": [
                 {
-                    "course_id": s["course_id"],
+                    "course_id": str(s.get("course_id", "")),
+                    "title": s.get("course_title") or s.get("title") or "Unnamed Course",
+                    "department": s.get("department") or "General",
                     "score": s["score"],
-                    "passed": s["passed"],
-                    "submitted_at": s.get("submitted_at", ""),
+                    "completed_at": s.get("submitted_at", ""),
+                    "status": "Completed"
                 }
-                for s in submissions[:10]
+                for s in submissions[:15]
             ],
         }
     
     except Exception as e:
         print(f"❌ Error generating progress report: {e}")
-        return {}
+        return {
+            "overallScore": 0, "coursesDone": 0, "learningHours": 0,
+            "departmentRank": "-", "skills": [], "badges": [], "completedCourses": []
+        }
 
 
 def get_team_progress_overview(viewer_role: str = "", viewer_department: str = "") -> dict:

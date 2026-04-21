@@ -70,7 +70,7 @@ def connect() -> Database:
         raise ConnectionFailure("MongoDB connection previously failed, not retrying")
     
     try:
-        print(f"  [Mongo] Connecting to: {MONGODB_URL}")
+        safe_print(f"  [Mongo] Connecting to database")
         _client = MongoClient(
             MONGODB_URL,
             serverSelectionTimeoutMS=MONGODB_TIMEOUT,
@@ -82,15 +82,15 @@ def connect() -> Database:
         _client.admin.command("ping")
         _db = _client[MONGODB_DB]
         
-        print(f"  [Mongo] Connected to database: {MONGODB_DB}")
+        safe_print(f"  [Mongo] Connected to database: {MONGODB_DB}")
         _create_indexes()
         return _db
     
     except (ConnectionFailure, ServerSelectionTimeoutError) as e:
         _connection_failed = True
         safe_err = str(e).encode('ascii', 'ignore').decode('ascii')
-        print(f"  [Mongo] Connection failed: {safe_err}")
-        print(f"  [Mongo] Warning: Make sure MongoDB is running at {MONGODB_URL}")
+        safe_print(f"  [Mongo] Connection failed: {safe_err}")
+        safe_print(f"  [Mongo] Warning: Make sure MongoDB is running")
         raise
 
 
@@ -109,7 +109,7 @@ def close() -> None:
         _client.close()
         _client = None
         _db = None
-        print("  [Mongo] Connection closed")
+        safe_print("  [Mongo] Connection closed")
 
 
 # -- Index Creation -------------------------------------------------------------
@@ -175,11 +175,11 @@ def _create_indexes() -> None:
         # User profiles indexes
         db["user_profiles"].create_index("user_id", unique=True, sparse=True)
         
-        print("  [Mongo] Indexes created for all collections")
+        safe_print("  [Mongo] Indexes created for all collections")
     
     except Exception as e:
         safe_err = str(e).encode('ascii', 'ignore').decode('ascii')
-        print(f"  [Mongo] Warning creating indexes: {safe_err}")
+        safe_print(f"  [Mongo] Warning creating indexes: {safe_err}")
 
 
 def now_iso() -> str:

@@ -62,7 +62,7 @@ const Courses: React.FC = () => {
       try {
         const [courseData, progressData] = await Promise.all([
           apiGet<Course[]>(`/api/courses?department=${activeDept}`),
-          apiGet<{ completedCourseIds: string[] }>("/api/growth-tracker/progress")
+          apiGet<{ completedCourseIds: string[] }>("/api/progress-report")
         ]);
         setCourses(courseData);
         setCompletedCourseIds(progressData.completedCourseIds || []);

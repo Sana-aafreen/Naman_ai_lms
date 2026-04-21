@@ -40,3 +40,4 @@ aiofiles>=23.2.1
 # Database (optional)
 # Used by Backend/agents/course_database.py when COURSE_DB_URL is PostgreSQL.
 psycopg2-binary>=2.9.9
+pymongo[srv]>=4.6.0
