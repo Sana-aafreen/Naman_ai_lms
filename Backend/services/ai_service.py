@@ -115,8 +115,54 @@ class GeminiService:
         else:
             return "I'm your NamanDarshan LMS coach! I can help with progress tracking, course recommendations, and career planning. Ask me anything about your professional development journey!"
 
-# Singleton instance
+class GroqService:
+    def __init__(self):
+        self.client = None
+        self.api_key = os.getenv("GROQ_API_KEY_TUTOR", os.getenv("GROQ_API_KEY", ""))
+        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        
+        if not self.api_key:
+            safe_print("⚠️  [Groq Service] GROQ_API_KEY_TUTOR not found.")
+            return
+
+        try:
+            from groq import Groq
+            self.client = Groq(api_key=self.api_key)
+            safe_print(f"✅ [Groq Service] Initialized with model: {self.model}")
+        except ImportError:
+            safe_print("⚠️  [Groq Service] groq library not installed.")
+        except Exception as e:
+            safe_print(f"❌ [Groq Service] Initialization error: {e}")
+
+    def generate_content(self, prompt: str, system: str = "") -> str:
+        if not self.client:
+            return "I'm having trouble connecting to my brain right now. Please check my API configuration."
+            
+        try:
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+            
+            completion = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=2048,
+                top_p=1,
+                stream=False
+            )
+            return completion.choices[0].message.content.strip()
+        except Exception as e:
+            safe_print(f"❌ [Groq Service] Generation error: {e}")
+            return f"Error: {str(e)}"
+
+# Singleton instances
 ai_service = GeminiService()
+groq_service = GroqService()
 
 def get_gemini_response(prompt: str, system: str = "") -> str:
     return ai_service.generate_content(prompt, system)
+
+def get_groq_response(prompt: str, system: str = "") -> str:
+    return groq_service.generate_content(prompt, system)

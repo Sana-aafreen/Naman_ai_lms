@@ -17,7 +17,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   CircleDot,
-  Target
+  Target,
+  Bot
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -35,7 +36,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: "dashboard", icon: <Home className="w-[18px] h-[18px]" />, label: "Dashboard", section: "Main", path: "/dashboard" },
   { id: "courses", icon: <LayoutDashboard className="w-[18px] h-[18px]" />, label: "Strategic Courses", section: "Main", path: "/courses" },
-  { id: "training", icon: <GraduationCap className="w-[18px] h-[18px]" />, label: "Resource Library", section: "Main", path: "/training" },
+  { id: "tutor", icon: <Bot className="w-[18px] h-[18px]" />, label: "AI Tutor", section: "Main", path: "/tutor" },
   { id: "progress", icon: <BarChart3 className="w-[18px] h-[18px]" />, label: "Performance Analytics", section: "Main", path: "/progress" },
   { id: "kpi", icon: <Target className="w-[18px] h-[18px]" />, label: "KPI Manager", section: "Main", path: "/kpi" },
   { id: "career", icon: <Briefcase className="w-[18px] h-[18px]" />, label: "Career Portal", section: "Workspace", path: "/career" },

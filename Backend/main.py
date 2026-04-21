@@ -106,7 +106,7 @@ def safe_print(*args, **kwargs):
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 import uvicorn
 from dotenv import load_dotenv
@@ -165,6 +165,32 @@ from agents.profile_manager import (
     MonitoringInsightsRequest,
     KPIWorkRatingRequest,
 )
+
+class TutorChatRequest(BaseModel):
+    messages: List[Dict[str, str]]
+    department: Optional[str] = None
+
+class TutorModuleSaveRequest(BaseModel):
+    title: str
+    topic: str
+    content: Dict[str, Any]
+    department: Optional[str] = None
+
+class TutorProgressUpdateRequest(BaseModel):
+    module_id: str
+    topic: str
+    status: str
+    score: Optional[int] = None
+    strengths: Optional[List[str]] = None
+    weaknesses: Optional[List[str]] = None
+
+class TutorAssessmentRequest(BaseModel):
+    module_id: str
+    questions: List[Dict[str, Any]]
+    answers: List[Any]
+    score: int
+    feedback: Optional[str] = None
+
 
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -975,7 +1001,64 @@ async def kpi_rate(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+# -- AI Tutor routes -----------------------------------------------------------
+
+@app.post("/api/tutor/chat")
+async def tutor_chat(req: TutorChatRequest, authorization: Optional[str] = Header(default=None)):
+    current_user = _get_current_user(authorization)
+    from agents.ai_tutor_agent import tutor_agent
+    
+    user_id = str(current_user.get("id", current_user.get("sub", "")))
+    department = req.department or current_user.get("department", "general")
+    
+    response = await tutor_agent.chat(req.messages, department, user_id)
+    return {"reply": response}
+
+@app.post("/api/tutor/modules")
+async def save_tutor_module(req: TutorModuleSaveRequest, authorization: Optional[str] = Header(default=None)):
+    current_user = _get_current_user(authorization)
+    from agents.ai_tutor_agent import tutor_agent
+    
+    user_id = str(current_user.get("id", current_user.get("sub", "")))
+    module_id = tutor_agent.save_module(user_id, req.model_dump())
+    return {"success": True, "id": module_id}
+
+@app.get("/api/tutor/modules")
+async def get_tutor_modules(authorization: Optional[str] = Header(default=None)):
+    current_user = _get_current_user(authorization)
+    from agents.ai_tutor_agent import tutor_agent
+    
+    user_id = str(current_user.get("id", current_user.get("sub", "")))
+    return tutor_agent.get_user_modules(user_id)
+
+@app.post("/api/tutor/progress")
+async def update_tutor_progress(req: TutorProgressUpdateRequest, authorization: Optional[str] = Header(default=None)):
+    current_user = _get_current_user(authorization)
+    from agents.ai_tutor_agent import tutor_agent
+    
+    user_id = str(current_user.get("id", current_user.get("sub", "")))
+    tutor_agent.upsert_progress(user_id, req.model_dump())
+    return {"success": True}
+
+@app.get("/api/tutor/progress")
+async def get_tutor_progress(authorization: Optional[str] = Header(default=None)):
+    current_user = _get_current_user(authorization)
+    from agents.ai_tutor_agent import tutor_agent
+    
+    user_id = str(current_user.get("id", current_user.get("sub", "")))
+    return tutor_agent.get_user_progress(user_id)
+
+@app.post("/api/tutor/assessment")
+async def submit_tutor_assessment(req: TutorAssessmentRequest, authorization: Optional[str] = Header(default=None)):
+    current_user = _get_current_user(authorization)
+    from agents.ai_tutor_agent import tutor_agent
+    
+    user_id = str(current_user.get("id", current_user.get("sub", "")))
+    tutor_agent.save_assessment(user_id, req.model_dump())
+    return {"success": True}
+
 # -- Entry point ---------------------------------------------------------------
+
 
 def safe_print(*args, **kwargs):
     """Print to stdout sanitizing any unicode characters if it fails."""

@@ -10,7 +10,7 @@ import Dashboard from "@/pages/Dashboard";
 import Courses from "@/pages/Courses";
 import AIAssistant from "@/pages/AIAssistant";
 import MonitoringAI from "@/pages/MonitoringAI";
-import TrainingMaterial from "@/pages/TrainingMaterial";
+import AITutor from "@/pages/AITutor";
 import LeaveManagement from "@/pages/LeaveManagement";
 import SOPLibrary from "@/pages/SOPLibrary";
 import HolidayCalendar from "@/pages/HolidayCalendar";
@@ -64,7 +64,7 @@ const App = () => (
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="courses" element={<Courses />} />
-              <Route path="training" element={<TrainingMaterial />} />
+              <Route path="tutor" element={<AITutor />} />
               <Route path="progress" element={<MyProgress />} />
               <Route path="leaves" element={<LeaveManagement />} />
               <Route path="holidays" element={<HolidayCalendar />} />
