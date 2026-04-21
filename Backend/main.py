@@ -995,4 +995,4 @@ if __name__ == "__main__":
     # Use the current app instance directly to avoid importing the module again.
     port = int(os.environ.get("PORT", 8000))
     safe_print(f"Starting uvicorn on port {port}...")
-    uvicorn.run(app, host="127.0.0.1", port=port, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
